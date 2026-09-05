@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1000" viewBox="0 0 1000 1000">
+  <rect width="1000" height="1000" fill="#111114"/>
+  <rect x="0.5" y="0.5" width="999" height="999" fill="none" stroke="#222227" stroke-width="1"/>
+  <text x="50%" y="47%" dominant-baseline="middle" text-anchor="middle" fill="#8C8C99" font-family="JetBrains Mono, Space Mono, monospace" font-size="20" font-weight="600" letter-spacing="1.5">demo-release-1.svg</text>
+  <text x="50%" y="53%" dominant-baseline="middle" text-anchor="middle" fill="#8C8C99" font-family="JetBrains Mono, Space Mono, monospace" font-size="14" letter-spacing="1">1000x1000 [1:1]</text>
+</svg>

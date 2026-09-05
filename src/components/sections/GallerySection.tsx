@@ -2,7 +2,10 @@ import React from "react";
 import Image from "next/image";
 import { Container } from "../layout/Container";
 import { Badge } from "@/components/ui/Badge";
-import { getAllGalleryImages } from "@/src/lib/content";
+import { Card } from "@/components/ui/Card";
+import { AspectRatio } from "@/components/ui/AspectRatio";
+import { SectionHeader } from "@/components/ui/SectionHeader";
+import { getAllGalleryImages } from "@/lib/content";
 
 export function GallerySection() {
   const images = getAllGalleryImages();
@@ -11,34 +14,27 @@ export function GallerySection() {
     <section id="gallery" className="border-b border-border bg-background py-20 sm:py-28">
       <Container>
         {/* Section Header */}
-        <div className="flex flex-col gap-2 border-b border-border pb-6 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <span className="font-mono text-xs uppercase tracking-widest text-accent">
-              [04] // VISUAL ARCHIVE
+        <SectionHeader
+          index="04"
+          label="VISUAL ARCHIVE"
+          title="Performance & Space"
+          action={
+            <span className="font-mono text-xs text-text-muted">
+              {images.length} CURATED ARCHIVE IMAGES
             </span>
-            <h2 className="mt-1 font-display text-3xl font-bold uppercase tracking-tight text-text-primary sm:text-4xl">
-              Performance & Space
-            </h2>
-          </div>
-          <span className="font-mono text-xs text-text-muted">
-            {images.length} CURATED ARCHIVE IMAGES
-          </span>
-        </div>
+          }
+        />
 
-        {/* Brutalist Image Grid with Sharp Geometry */}
-        <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {/* Brutalist Image Grid with Dynamic Aspect Ratios */}
+        <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 items-start">
           {images.map((img) => (
-            <div
+            <Card
               key={img.id}
-              className="group relative border border-border bg-surface transition-colors duration-fast hover:border-accent"
+              variant="interactive"
+              className="relative overflow-hidden"
             >
-              {/* Image Container with Fixed Aspect Ratio */}
-              <div className="relative aspect-[4/3] w-full overflow-hidden bg-surface-active">
-                {/* Visual placeholder */}
-                <div className="absolute inset-0 flex items-center justify-center font-mono text-[10px] uppercase text-text-muted/40">
-                  [{img.category.toUpperCase()} // {img.aspectRatio}]
-                </div>
-
+              {/* Image Container with Dynamic Aspect Ratio */}
+              <AspectRatio ratio={img.aspectRatio} className="bg-surface-active">
                 <Image
                   src={img.src}
                   alt={img.alt}
@@ -52,7 +48,7 @@ export function GallerySection() {
                 <div className="absolute top-3 left-3 z-10">
                   <Badge label={img.category} variant="neutral" />
                 </div>
-              </div>
+              </AspectRatio>
 
               {/* Caption & Metadata */}
               <div className="border-t border-border p-3.5">
@@ -60,7 +56,7 @@ export function GallerySection() {
                   {img.alt}
                 </p>
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       </Container>

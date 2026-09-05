@@ -15,7 +15,8 @@ A mobile-first, ultra-fast DJ portfolio, Electronic Press Kit (EPK), and booking
   - **Metadata / Technical**: JetBrains Mono
 - **Icons**: Lucide Icons
 - **Booking Pipeline**:
-  - `Browser → Booking Form → BookingService abstraction → Cloudflare Pages Function (/functions/api/booking.ts) → Resend → DJ / Agent Email`
+  - `Browser → Booking Form → Cloudflare Pages Function (/functions/api/booking.ts) → Resend → DJ / Agent Email`
+  - A `BookingService` abstraction layer is planned for Phase 4, alongside the full booking form, to decouple the form from the transport.
 - **Configuration & Content**: Strongly typed local TypeScript modules designed to be easily replaced by a headless CMS or database in future phases without rewriting UI components.
 
 ---
@@ -24,7 +25,7 @@ A mobile-first, ultra-fast DJ portfolio, Electronic Press Kit (EPK), and booking
 
 As specified in `PROJECT_SPEC.pdf`:
 - **Static Export Only**: The Next.js application must remain statically exportable.
-- **No Dynamic Server Backend**: No dynamic Next.js server runtime; no Next.js API routes that depend on runtime request data.
+- **No Dynamic Server Backend**: No dynamic Next.js server runtime. The dev-only API route (`src/app/api/booking/route.ts`) was removed in Phase 3. The single booking endpoint is `functions/api/booking.ts`, a Cloudflare Pages Function that runs outside the Next.js build.
 - **Zero Cost / Minimal Infrastructure**: No Firebase, databases, CMS, auth providers, or payment gateways in this phase.
 - **Performance**:
   - No Three.js or heavy GSAP animation libraries.
@@ -81,7 +82,46 @@ To ensure zero component rewrites when migrating to a headless CMS (e.g. Sanity,
 
 ---
 
-## 5. Environment Variables
+## 5. Phase 3: UI Component System
+
+Phase 3 extracted reusable UI primitives and refactored all sections and pages to consume them consistently.
+
+### Primitives (`src/components/ui/`)
+
+| Component | File | Purpose |
+| :--- | :--- | :--- |
+| **Button** | `Button.tsx` | Primary/outline/ghost variants with size options |
+| **Badge** | `Badge.tsx` | Status labels with neutral/signal variants |
+| **Input** | `Input.tsx` | Styled text input matching design tokens |
+| **Textarea** | `Textarea.tsx` | Multi-line input matching design tokens |
+| **Select** | `Select.tsx` | Dropdown select matching Input visual language |
+| **Toast** | `Toast.tsx` | Dismissable notification bar |
+| **Card** | `Card.tsx` | Container with `default`, `interactive`, `bordered` variants |
+| **AspectRatio** | `AspectRatio.tsx` | Exhaustive aspect-ratio mapper (`16:9`, `4:3`, `1:1`, `3:2`, `4:5`) |
+| **SectionHeader** | `SectionHeader.tsx` | Reusable section/page header with index, label, title, optional description, and `h1`/`h2` support |
+
+### Shared Utility
+
+- **`src/lib/utils.ts`**: Canonical `cn()` helper combining `clsx` and `tailwind-merge`. All components import `cn` from this single source.
+
+### Layout Components (`src/components/layout/`)
+
+- **Container** (`Container.tsx`): Responsive max-width wrapper.
+- **Header** (`Header.tsx`): Site navigation bar.
+- **Footer** (`Footer.tsx`): Site footer.
+
+### Placeholder Assets
+
+`public/` currently contains SVG image placeholders and stub PDF/ZIP files for the press kit. **These must be replaced with real assets before production launch:**
+- `public/images/gallery/*.svg` — 6 gallery image placeholders
+- `public/images/releases/*.svg` — 4 release artwork placeholders
+- `public/images/mixes/*.svg` — 3 mix artwork placeholders
+- `public/assets/press/*.pdf` — 2 placeholder PDFs (tech rider, hospitality rider)
+- `public/assets/press/*.zip` — 3 placeholder ZIPs (EPK, press photos, logos)
+
+---
+
+## 6. Environment Variables
 
 For production booking notification dispatch via Cloudflare Pages Function:
 - `BOOKING_NOTIFICATION_EMAIL`: Recipient email address for booking inquiries.
@@ -89,7 +129,7 @@ For production booking notification dispatch via Cloudflare Pages Function:
 
 ---
 
-## 6. Development & Build Scripts
+## 7. Development & Build Scripts
 
 ```bash
 # Start local development server

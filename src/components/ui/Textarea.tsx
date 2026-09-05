@@ -1,10 +1,5 @@
 import React, { type TextareaHTMLAttributes, forwardRef } from "react";
-import { clsx } from "clsx";
-import { twMerge } from "tailwind-merge";
-
-function cn(...inputs: Parameters<typeof clsx>) {
-  return twMerge(clsx(inputs));
-}
+import { cn } from "@/lib/utils";
 
 export interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
   readonly label?: string;

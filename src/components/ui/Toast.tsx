@@ -2,12 +2,7 @@
 
 import React, { useEffect } from "react";
 import { CheckCircle2, AlertCircle, X } from "lucide-react";
-import { clsx } from "clsx";
-import { twMerge } from "tailwind-merge";
-
-function cn(...inputs: Parameters<typeof clsx>) {
-  return twMerge(clsx(inputs));
-}
+import { cn } from "@/lib/utils";
 
 export interface ToastProps {
   readonly message: string;

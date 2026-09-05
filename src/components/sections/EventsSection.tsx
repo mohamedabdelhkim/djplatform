@@ -3,7 +3,8 @@ import Link from "next/link";
 import { Container } from "../layout/Container";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { getUpcomingEvents } from "@/src/lib/content";
+import { SectionHeader } from "@/components/ui/SectionHeader";
+import { getUpcomingEvents } from "@/lib/content";
 import { ArrowUpRight } from "lucide-react";
 
 export function EventsSection() {
@@ -13,22 +14,19 @@ export function EventsSection() {
     <section id="events" className="border-b border-border bg-surface py-20 sm:py-28">
       <Container>
         {/* Section Header */}
-        <div className="flex flex-col gap-2 border-b border-border pb-6 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <span className="font-mono text-xs uppercase tracking-widest text-accent">
-              [03] // LIVE DATES
-            </span>
-            <h2 className="mt-1 font-display text-3xl font-bold uppercase tracking-tight text-text-primary sm:text-4xl">
-              Tour Calendar
-            </h2>
-          </div>
-          <Link href="/events" tabIndex={-1}>
-            <Button variant="outline" size="sm">
-              All Tour Dates (Past & Upcoming)
-              <ArrowUpRight className="ml-1.5 h-3.5 w-3.5" aria-hidden="true" />
-            </Button>
-          </Link>
-        </div>
+        <SectionHeader
+          index="03"
+          label="LIVE DATES"
+          title="Tour Calendar"
+          action={
+            <Link href="/events" tabIndex={-1}>
+              <Button variant="outline" size="sm">
+                All Tour Dates (Past & Upcoming)
+                <ArrowUpRight className="ml-1.5 h-3.5 w-3.5" aria-hidden="true" />
+              </Button>
+            </Link>
+          }
+        />
 
         {/* Tour Dates List */}
         <div className="mt-10 divide-y divide-border border-y border-border">

@@ -1,9 +1,10 @@
 import React from "react";
 import { Container } from "@/components/layout/Container";
 import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { SectionHeader } from "@/components/ui/SectionHeader";
 import { getArtistProfile, getPressAssets, getPressQuotes } from "@/lib/content";
-import { Download, FileText, Image as ImageIcon, Music, Quote } from "lucide-react";
+import { Download, Quote } from "lucide-react";
 
 export const metadata = {
   title: "Electronic Press Kit (EPK) | DJ Platform",
@@ -19,20 +20,15 @@ export default function PressPage() {
     <div className="py-16 sm:py-24">
       <Container>
         {/* Header */}
-        <div className="border-b border-border pb-8">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="font-mono text-xs uppercase tracking-widest text-accent">
-              EPK // ELECTRONIC PRESS KIT
-            </span>
-            <Badge label="2026 OFFICIAL ASSETS" variant="neutral" />
-          </div>
-          <h1 className="mt-2 font-display text-4xl font-bold uppercase tracking-tight text-text-primary sm:text-6xl">
-            Press & Promoters
-          </h1>
-          <p className="mt-3 font-body text-base text-text-muted max-w-2xl">
-            Official promotional assets, high-resolution photography, technical riders, and biography texts for promoters, journalists, and event organizers.
-          </p>
-        </div>
+        <SectionHeader
+          as="h1"
+          index="EPK"
+          label="ELECTRONIC PRESS KIT"
+          title="Press & Promoters"
+          meta={<Badge label="2026 OFFICIAL ASSETS" variant="neutral" />}
+          description="Official promotional assets, high-resolution photography, technical riders, and biography texts for promoters, journalists, and event organizers."
+          className="pb-8"
+        />
 
         {/* Downloadable Assets Grid */}
         <div className="mt-16">
@@ -45,9 +41,10 @@ export default function PressPage() {
 
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {assets.map((asset) => (
-              <div
+              <Card
                 key={asset.id}
-                className="group flex flex-col justify-between border border-border bg-surface p-6 transition-colors duration-fast hover:border-accent"
+                variant="interactive"
+                className="flex flex-col justify-between p-6"
               >
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
@@ -78,7 +75,7 @@ export default function PressPage() {
                     <Download className="h-3.5 w-3.5" aria-hidden="true" />
                   </a>
                 </div>
-              </div>
+              </Card>
             ))}
           </div>
         </div>

@@ -1,29 +1,27 @@
 import React from "react";
 import { Container } from "../layout/Container";
 import { Badge } from "@/components/ui/Badge";
-import { artist } from "@/src/config/artist";
+import { SectionHeader } from "@/components/ui/SectionHeader";
+import { getArtistProfile } from "@/lib/content";
 
 export function AboutSection() {
+  const artist = getArtistProfile();
+
   return (
     <section id="about" className="border-b border-border bg-surface py-20 sm:py-28">
       <Container>
         {/* Section Header with Editorial Numbering */}
-        <div className="flex flex-col gap-2 border-b border-border pb-6 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <span className="font-mono text-xs uppercase tracking-widest text-accent">
-              [01] // PROFILE
-            </span>
-            <h2 className="mt-1 font-display text-3xl font-bold uppercase tracking-tight text-text-primary sm:text-4xl">
-              About The Artist
-            </h2>
-          </div>
-          <div className="flex items-center gap-2">
+        <SectionHeader
+          index="01"
+          label="PROFILE"
+          title="About The Artist"
+          action={
             <Badge
               label={artist.bookingAvailability === "available" ? "BOOKING OPEN" : "LIMITED"}
               variant={artist.bookingAvailability === "available" ? "accent" : "neutral"}
             />
-          </div>
-        </div>
+          }
+        />
 
         {/* Content Grid */}
         <div className="mt-12 grid grid-cols-1 gap-12 lg:grid-cols-12">
@@ -65,7 +63,7 @@ export function AboutSection() {
           {/* Biography Column */}
           <div className="space-y-6 lg:col-span-8">
             <p className="font-body text-lg leading-relaxed text-text-primary font-medium">
-              {artist.mediumBio || artist.bio}
+              {artist.mediumBio || artist.shortBio}
             </p>
             <div className="space-y-4 font-body text-sm leading-relaxed text-text-muted whitespace-pre-line">
               {artist.longBio}

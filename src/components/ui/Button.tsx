@@ -1,10 +1,5 @@
 import React, { type ButtonHTMLAttributes } from "react";
-import { clsx } from "clsx";
-import { twMerge } from "tailwind-merge";
-
-function cn(...inputs: Parameters<typeof clsx>) {
-  return twMerge(clsx(inputs));
-}
+import { cn } from "@/lib/utils";
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   readonly variant?: "primary" | "secondary" | "outline" | "ghost";

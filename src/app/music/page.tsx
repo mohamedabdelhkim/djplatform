@@ -2,6 +2,8 @@ import React from "react";
 import { Container } from "@/components/layout/Container";
 import { AudioFacade } from "@/components/audio/AudioFacade";
 import { Badge } from "@/components/ui/Badge";
+import { Card } from "@/components/ui/Card";
+import { SectionHeader } from "@/components/ui/SectionHeader";
 import { getAllReleases, getAllMixes } from "@/lib/content";
 import { ExternalLink } from "lucide-react";
 
@@ -18,17 +20,14 @@ export default function MusicPage() {
     <div className="py-16 sm:py-24">
       <Container>
         {/* Header */}
-        <div className="border-b border-border pb-8">
-          <span className="font-mono text-xs uppercase tracking-widest text-accent">
-            ARCHIVE // SOUND
-          </span>
-          <h1 className="mt-2 font-display text-4xl font-bold uppercase tracking-tight text-text-primary sm:text-6xl">
-            Discography & Mixes
-          </h1>
-          <p className="mt-3 font-body text-base text-text-muted max-w-2xl">
-            Complete catalog of studio releases, vinyl pressings, and recorded live sets.
-          </p>
-        </div>
+        <SectionHeader
+          as="h1"
+          index="ARCHIVE"
+          label="SOUND"
+          title="Discography & Mixes"
+          description="Complete catalog of studio releases, vinyl pressings, and recorded live sets."
+          className="pb-8"
+        />
 
         {/* Recorded DJ Sets */}
         <div className="mt-16">
@@ -79,9 +78,10 @@ export default function MusicPage() {
 
           <div className="grid gap-6 md:grid-cols-2">
             {releases.map((release) => (
-              <div
+              <Card
                 key={release.id}
-                className="group border border-border bg-surface p-6 transition-colors duration-fast hover:border-accent"
+                variant="interactive"
+                className="p-6"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="space-y-1">
@@ -120,7 +120,7 @@ export default function MusicPage() {
                     </a>
                   ))}
                 </div>
-              </div>
+              </Card>
             ))}
           </div>
         </div>

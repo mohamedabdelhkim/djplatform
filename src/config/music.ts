@@ -8,7 +8,7 @@ export const musicReleases: readonly MusicRelease[] = [
     releaseDate: "2026-03-15",
     label: "Demo Records Underground",
     catalogNumber: "DRU-042",
-    artwork: "/images/releases/demo-release-1.jpg",
+    artwork: "/images/releases/demo-release-1.svg",
     description:
       "Four original cuts of stripped-down warehouse industrial techno featuring metallic percussive sequences and sub-bass modulations.",
     externalLinks: [
@@ -26,7 +26,7 @@ export const musicReleases: readonly MusicRelease[] = [
     releaseDate: "2025-11-20",
     label: "Demo Audio Collective",
     catalogNumber: "DAC-LP08",
-    artwork: "/images/releases/demo-release-2.jpg",
+    artwork: "/images/releases/demo-release-2.svg",
     description:
       "Debut double-gatefold vinyl LP documenting extended analog modular jam sessions recorded during late-night warehouse sessions.",
     externalLinks: [
@@ -43,7 +43,7 @@ export const musicReleases: readonly MusicRelease[] = [
     releaseDate: "2025-06-10",
     label: "Demo Imprint Berlin",
     catalogNumber: "DIB-019",
-    artwork: "/images/releases/demo-release-3.jpg",
+    artwork: "/images/releases/demo-release-3.svg",
     description:
       "A 140 BPM peak-time weapon driven by distorted 909 percussion and harsh sync-lead modulations.",
     externalLinks: [
@@ -59,7 +59,7 @@ export const musicReleases: readonly MusicRelease[] = [
     releaseDate: "2025-02-04",
     label: "Demo Records Sound Lab",
     catalogNumber: "DRSL-REM03",
-    artwork: "/images/releases/demo-release-4.jpg",
+    artwork: "/images/releases/demo-release-4.svg",
     description:
       "A deconstructed rework of demo pioneer stems into a relentless rhythm exploration.",
     externalLinks: [
@@ -78,7 +78,7 @@ export const mixTracks: readonly MixTrack[] = [
     duration: "68:42",
     platform: "soundcloud",
     embedUrl: "https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/demo-mix-1",
-    artwork: "/images/mixes/demo-mix-1.jpg",
+    artwork: "/images/mixes/demo-mix-1.svg",
     description:
       "Recorded live on the main room soundsystem at Demo Club Vault. Unreleased dubplates and modular hardware improvisations.",
     tracklist: [
@@ -97,7 +97,7 @@ export const mixTracks: readonly MixTrack[] = [
     duration: "59:30",
     platform: "soundcloud",
     embedUrl: "https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/demo-mix-2",
-    artwork: "/images/mixes/demo-mix-2.jpg",
+    artwork: "/images/mixes/demo-mix-2.svg",
     description:
       "Monthly guest mix exploration featuring deep hypnotic grooves, contemporary EBM, and ambient interludes.",
     featured: true,
@@ -109,7 +109,7 @@ export const mixTracks: readonly MixTrack[] = [
     duration: "74:15",
     platform: "soundcloud",
     embedUrl: "https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/demo-mix-3",
-    artwork: "/images/mixes/demo-mix-3.jpg",
+    artwork: "/images/mixes/demo-mix-3.svg",
     description:
       "Deep warehouse vinyl-only selection capturing dark room energy and continuous atmospheric momentum.",
     featured: false,

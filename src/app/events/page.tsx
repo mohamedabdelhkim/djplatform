@@ -2,6 +2,7 @@ import React from "react";
 import { Container } from "@/components/layout/Container";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { SectionHeader } from "@/components/ui/SectionHeader";
 import { getUpcomingEvents, getPastEvents } from "@/lib/content";
 import { ArrowUpRight } from "lucide-react";
 
@@ -18,17 +19,14 @@ export default function EventsPage() {
     <div className="py-16 sm:py-24">
       <Container>
         {/* Header */}
-        <div className="border-b border-border pb-8">
-          <span className="font-mono text-xs uppercase tracking-widest text-accent">
-            SCHEDULE // TOUR
-          </span>
-          <h1 className="mt-2 font-display text-4xl font-bold uppercase tracking-tight text-text-primary sm:text-6xl">
-            Tour Schedule
-          </h1>
-          <p className="mt-3 font-body text-base text-text-muted max-w-2xl">
-            Confirmed tour dates, festival appearances, and historical performance archive.
-          </p>
-        </div>
+        <SectionHeader
+          as="h1"
+          index="SCHEDULE"
+          label="TOUR"
+          title="Tour Schedule"
+          description="Confirmed tour dates, festival appearances, and historical performance archive."
+          className="pb-8"
+        />
 
         {/* Upcoming Gigs */}
         <div className="mt-16">

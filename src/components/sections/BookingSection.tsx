@@ -6,6 +6,7 @@ import { Input } from "../ui/Input";
 import { Textarea } from "../ui/Textarea";
 import { Button } from "../ui/Button";
 import { Toast } from "../ui/Toast";
+import { SectionHeader } from "../ui/SectionHeader";
 
 export function BookingSection() {
   const [form, setForm] = useState({ name: "", email: "", message: "" });
@@ -42,14 +43,12 @@ export function BookingSection() {
   return (
     <section id="booking" className="py-20 border-b border-border bg-surface text-text-primary">
       <Container>
-        <div className="border-b border-border pb-6 mb-8">
-          <span className="font-mono text-xs uppercase tracking-widest text-accent">
-            [05] // DIRECT INQUIRIES
-          </span>
-          <h2 className="mt-1 font-display text-3xl font-bold uppercase tracking-tight text-text-primary sm:text-4xl">
-            Booking & Contact
-          </h2>
-        </div>
+        <SectionHeader
+          index="05"
+          label="DIRECT INQUIRIES"
+          title="Booking & Contact"
+          className="mb-8"
+        />
 
         <form onSubmit={handleSubmit} className="space-y-4 max-w-lg">
           <Input

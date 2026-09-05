@@ -3,7 +3,7 @@ import type { GalleryImage } from "@/types/gallery";
 export const galleryImages: readonly GalleryImage[] = [
   {
     id: "gal-001",
-    src: "/images/gallery/demo-gallery-1.jpg",
+    src: "/images/gallery/demo-gallery-1.svg",
     alt: "DEMO ARTIST performing live in dark warehouse setting with red signal lights",
     width: 1200,
     height: 800,
@@ -13,7 +13,7 @@ export const galleryImages: readonly GalleryImage[] = [
   },
   {
     id: "gal-002",
-    src: "/images/gallery/demo-gallery-2.jpg",
+    src: "/images/gallery/demo-gallery-2.svg",
     alt: "Modular synthesizer hardware and patch cables in dimly lit demo studio",
     width: 1200,
     height: 900,
@@ -23,7 +23,7 @@ export const galleryImages: readonly GalleryImage[] = [
   },
   {
     id: "gal-003",
-    src: "/images/gallery/demo-gallery-3.jpg",
+    src: "/images/gallery/demo-gallery-3.svg",
     alt: "Silhouette of DEMO ARTIST behind CDJs with strobe lighting effect",
     width: 1200,
     height: 675,
@@ -33,7 +33,7 @@ export const galleryImages: readonly GalleryImage[] = [
   },
   {
     id: "gal-004",
-    src: "/images/gallery/demo-gallery-4.jpg",
+    src: "/images/gallery/demo-gallery-4.svg",
     alt: "Monochromatic editorial portrait of DEMO ARTIST in industrial architecture",
     width: 800,
     height: 1000,
@@ -43,7 +43,7 @@ export const galleryImages: readonly GalleryImage[] = [
   },
   {
     id: "gal-005",
-    src: "/images/gallery/demo-gallery-5.jpg",
+    src: "/images/gallery/demo-gallery-5.svg",
     alt: "Analog turntable platter spinning 12-inch demo test pressing",
     width: 1000,
     height: 1000,
@@ -53,7 +53,7 @@ export const galleryImages: readonly GalleryImage[] = [
   },
   {
     id: "gal-006",
-    src: "/images/gallery/demo-gallery-6.jpg",
+    src: "/images/gallery/demo-gallery-6.svg",
     alt: "Audience crowd in dense fog at underground techno showcase",
     width: 1200,
     height: 800,
