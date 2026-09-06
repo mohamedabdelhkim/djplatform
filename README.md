@@ -209,36 +209,30 @@ the build. The correct settings are:
 | Build command | `npm run build` |
 | Build output directory | `out` |
 
-### Automated deploys — not installed
+### Automated deploys
 
-A workflow that tests and deploys on every push to `main` is prepared but **not
-in the repository**. GitHub refuses to accept `.github/workflows/*` from a
-Personal Access Token that lacks the `workflow` scope, and the token in use does
-not have it. Note that the same token *can* delete workflow files — only
-creating and updating them is blocked, which makes the cause easy to misread.
+Cloudflare Pages builds and deploys on every push to `main`. Settings:
 
-To enable it, either add the `workflow` scope to the token
-(Settings → Developer settings → Personal access tokens) and push, or create the
-file through the GitHub web UI, which uses session auth and is unaffected.
-
-Until then `npm run deploy` below is the gate, and it has to be run deliberately.
-
-Two repository secrets are required, under
-**Settings → Secrets and variables → Actions**:
-
-| Secret | Value |
+| Setting | Value |
 | :--- | :--- |
-| `CLOUDFLARE_API_TOKEN` | API token with `Account → Cloudflare Pages → Edit` |
-| `CLOUDFLARE_ACCOUNT_ID` | Account ID, shown on the Workers & Pages page |
+| Framework preset | **None** |
+| Build command | **`npm test`** |
+| Build output directory | `out` |
+| Production branch | `main` |
 
-The credential check is the first step, so a missing secret fails in seconds
-rather than after a full build. It fails rather than skipping the deploy: a
-green run that shipped nothing would be a false success.
+The build command is `npm test`, not `npm run build`. `npm test` builds *and*
+then runs the full suite, and exits non-zero if anything fails, so Cloudflare
+aborts the deployment. That makes the native Git integration test-gated without
+any external CI.
 
-Cloudflare's own Git integration is not usable here. The project was created
-with `wrangler pages project create`, which makes it a **Direct Upload** project
-(`wrangler pages project list` shows `Git Provider: No`), and Cloudflare does not
-convert between the two.
+Do not accept the **Next.js** framework preset. It sets the build command to
+`npx opennextjs-cloudflare build`, an adapter that converts the app to a Worker
+with a dynamic runtime — which contradicts `output: 'export'` and fails the
+build.
+
+The tests need Node 22.18+ for built-in type stripping. `.nvmrc` pins 22 and
+Cloudflare reads it; if a build ever fails inside the test runner, set a
+`NODE_VERSION` environment variable to an explicit 22.18+ patch release.
 
 ### Deploying by hand
 
