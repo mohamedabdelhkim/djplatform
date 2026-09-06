@@ -100,11 +100,28 @@ async function markAlerted(store: KVNamespace | undefined): Promise<void> {
   }
 }
 
-async function sendAlert(env: Env, origin: string, failures: readonly CheckResult[]): Promise<void> {
-  if (!env.RESEND_API_KEY || !env.ALERT_EMAIL) {
-    console.error("Monitor cannot alert: RESEND_API_KEY or ALERT_EMAIL is not set.");
-    return;
-  }
+/** Masks an address for diagnostics: a@b.com -> a***@b.com. Enough to tell a
+ *  typo or the wrong mailbox from a delivery problem, without logging it. */
+function maskEmail(value: string): string {
+  const at = value.indexOf("@");
+  if (at < 1) return "(malformed: no @)";
+  return value[0] + "***" + value.slice(at);
+}
+
+/**
+ * Returns what actually happened, rather than assuming success.
+ *
+ * The first version returned "sent" whether or not Resend accepted the message,
+ * so a silently dropped alert looked identical to a delivered one - the same
+ * false-success bug this project already had once in the booking endpoint.
+ */
+async function sendAlert(
+  env: Env,
+  origin: string,
+  failures: readonly CheckResult[]
+): Promise<string> {
+  if (!env.RESEND_API_KEY) return "no RESEND_API_KEY";
+  if (!env.ALERT_EMAIL) return "no ALERT_EMAIL";
 
   const lines = failures.map((f) => `  ${f.name}\n    ${f.detail}`).join("\n\n");
   const text = [
@@ -134,9 +151,25 @@ async function sendAlert(env: Env, origin: string, failures: readonly CheckResul
     }),
   });
 
+  const body = await res.text();
   if (!res.ok) {
-    console.error("Monitor could not send its alert:", await res.text());
+    console.error("Monitor could not send its alert:", body);
+    return `resend rejected ${res.status}: ${body.slice(0, 140)}`;
   }
+
+  let id = "";
+  try {
+    id = (JSON.parse(body) as { id?: string }).id || "";
+  } catch {
+    // Non-JSON success body: the id is a nicety, not a requirement.
+  }
+
+  // Resend accepting is not the same as the mail arriving: with the sandbox
+  // sender it only delivers to the address that owns the Resend account, and
+  // anything else is dropped without an error. Reporting the recipient makes
+  // that distinguishable from a wrong ALERT_EMAIL.
+  console.log(`Monitor alert accepted by Resend. id=${id} to=${maskEmail(env.ALERT_EMAIL)}`);
+  return `accepted by resend (id ${id || "unknown"}, to ${maskEmail(env.ALERT_EMAIL)})`;
 }
 
 async function runChecks(env: Env): Promise<{ origin: string; results: CheckResult[] }> {
@@ -162,9 +195,9 @@ async function alertIfDue(
     console.log("Monitor: alert suppressed, still inside the cooldown window.");
     return "suppressed (cooldown)";
   }
-  await sendAlert(env, origin, failures);
+  const outcome = await sendAlert(env, origin, failures);
   await markAlerted(env.MONITOR_STATE);
-  return "sent";
+  return outcome;
 }
 
 export default {
