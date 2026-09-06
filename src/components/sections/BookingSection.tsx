@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { submitBookingRequest } from "@/lib/booking-service";
 import { cn } from "@/lib/utils";
 import type { BookingRequest, BookingSubmissionStatus } from "@/types/booking";
+import { validate, type FormErrors } from "@/lib/booking-validation";
 
 const BUDGET_OPTIONS = [
   { value: "", label: "Select Budget Tier (USD)" },
@@ -31,60 +32,6 @@ const INITIAL_FORM: BookingRequest = {
   message: "",
   websiteUrl: "",
 };
-
-interface FormErrors {
-  name?: string;
-  email?: string;
-  organization?: string;
-  eventName?: string;
-  eventDate?: string;
-  location?: string;
-  budget?: string;
-  message?: string;
-  websiteUrl?: string;
-}
-
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-function validate(form: BookingRequest): FormErrors {
-  const errors: FormErrors = {};
-
-  if (!form.name.trim()) {
-    errors.name = "Full name or promoter contact is required.";
-  }
-
-  if (!form.email.trim()) {
-    errors.email = "Email address is required.";
-  } else if (!EMAIL_REGEX.test(form.email.trim())) {
-    errors.email = "Please enter a valid email address.";
-  }
-
-  if (!form.organization.trim()) {
-    errors.organization = "Organization or promoter entity is required.";
-  }
-
-  if (!form.eventName.trim()) {
-    errors.eventName = "Event or festival name is required.";
-  }
-
-  if (!form.eventDate.trim()) {
-    errors.eventDate = "Proposed event date is required.";
-  }
-
-  if (!form.location.trim()) {
-    errors.location = "Event location (city, country, venue) is required.";
-  }
-
-  if (!form.budget || !form.budget.trim()) {
-    errors.budget = "Please select a budget tier.";
-  }
-
-  if (!form.message.trim()) {
-    errors.message = "Booking inquiry details are required.";
-  }
-
-  return errors;
-}
 
 export function BookingSection() {
   const [form, setForm] = useState<BookingRequest>(INITIAL_FORM);

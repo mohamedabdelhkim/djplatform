@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test": "npm run build && node --import ./tests/support/alias-hook.mjs --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"tests/**/*.test.ts\"",
+    "test:unit": "node --import ./tests/support/alias-hook.mjs --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"tests/unit/**/*.test.ts\""
   },
   "dependencies": {
     "clsx": "^2.1.1",

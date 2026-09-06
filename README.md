@@ -260,3 +260,64 @@ Node older than the 20.9 that Next.js 16 requires.
 npm run build
 npx wrangler pages dev out
 ```
+
+---
+
+## 10. Tests
+
+```bash
+npm test        # builds, then runs every layer
+npm run test:unit   # logic only, no build, ~200ms
+```
+
+Uses the built-in `node --test` runner. There are **no test dependencies**: Node
+strips the TypeScript itself, and `tests/support/alias-hook.mjs` resolves the
+`@/` path alias that `tsconfig.json` defines but Node does not read. Requires
+Node 22.18+ (type stripping on by default); `.nvmrc` pins 22.
+
+### Why the suite is shaped this way
+
+Every defect this project has actually shipped passed both `tsc --noEmit` and
+`next build`:
+
+| Defect | Type-safe? | Built cleanly? |
+| :--- | :--- | :--- |
+| Gallery images pinned to 4:3 while five ratios were declared | yes | yes |
+| Booking fields with a placeholder but no `<label>` | yes | yes |
+| A `Badge` silently dropped from the press page | yes | yes |
+| The Function returning `success: true` with no API key set | yes | yes |
+| `Toast` left as unreferenced dead code | yes | yes |
+
+None was a type error, so the suite asserts against **behaviour and emitted
+HTML**, not types.
+
+### Layers
+
+**`tests/unit/`** — pure logic, no DOM, no build.
+- `booking-validation.test.ts`: every required field, whitespace-only input,
+  email formats, and an explicit check that the client rejects at least what
+  `functions/api/booking.ts` rejects.
+- `booking-service.test.ts`: the transport contract against a stubbed `fetch` —
+  request shape, error passthrough, and that it never throws and never reports
+  success for a 503.
+- `content.test.ts`: content invariants — featured items are subsets, upcoming
+  and past events partition the schedule, ids are unique, every gallery image
+  has real alt text and dimensions matching its declared ratio.
+
+**`tests/build/`** — assertions against the real static export in `out/`.
+- Every form control has a matching `<label for>`.
+- The status live region is present in the HTML at build time, not mounted only
+  when a message appears.
+- Every aspect ratio declared in config reaches the page.
+- Every asset referenced in config exists in `out/`.
+- No `out/api` directory, i.e. no Next.js route has come back.
+
+These were verified by mutation: reintroducing the hardcoded aspect ratio, the
+missing label, and the conditional live region each turned the suite red.
+
+### Not covered yet
+
+Contract tests against the deployed Function (`wrangler pages dev` + real
+requests to `/api/booking`) are deliberately deferred — they need a server
+process and would slow the suite. Until then the endpoint's status codes are
+only verified by hand, per the deployment section above.
