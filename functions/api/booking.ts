@@ -1,3 +1,5 @@
+import { findConfigProblem } from "../../src/lib/booking-config";
+
 interface Env {
   /** KV namespace used only as a short-lived per-IP counter. Optional: when the
    *  binding is absent the endpoint still works, unthrottled. */
@@ -98,6 +100,27 @@ async function withinRateLimit(
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {
   try {
+    // Runs before request parsing on purpose. A misconfigured endpoint is broken
+    // for everyone, so it should not look like a client error - and putting it
+    // first means the uptime monitor's probe sees it too, which turns a silent
+    // configuration mistake into an alert within fifteen minutes.
+    const configProblem = findConfigProblem(context.env);
+    if (configProblem && context.env.BOOKING_DEMO_MODE !== "true") {
+      console.error(
+        `Booking service misconfigured: ${configProblem.variable} ${configProblem.reason}.`
+      );
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Booking service is misconfigured: ${configProblem.variable} ${configProblem.reason}.`,
+        }),
+        {
+          status: 503,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
     const contentType = context.request.headers.get("content-type") || "";
     if (!contentType.includes("application/json")) {
       return new Response(

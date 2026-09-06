@@ -384,6 +384,7 @@ every accepted request. It is the only attack surface that costs anything.
 | Body size cap (64 KB) | `functions/api/booking.ts` | 413 before the JSON is parsed |
 | Per-field length limits | Function, mirrored in `booking-validation.ts` | 400 naming the field |
 | Honeypot (`contact_reference`) | Hidden input + Function | 200 with nothing dispatched |
+| Configuration shape check | `findConfigProblem()`, before request parsing | 503 naming the wrong variable |
 | Per-IP throttle (Workers KV) | `withinRateLimit()` in the Function | 429 after 5 requests in 10 minutes |
 | Subject sanitisation | `sanitizeHeaderValue()` | CR/LF and control characters stripped, truncated |
 | Security headers | `public/_headers` | CSP `frame-ancestors`, HSTS, XFO, Permissions-Policy, COOP |
@@ -394,6 +395,32 @@ row were processed without any throttling.
 The honeypot is deliberately **not** named `company`, `organization` or `fax`.
 Those are browser autofill tokens; a browser filling the trap for a real visitor
 would discard a genuine booking while showing them a success message.
+
+### Configuration validation
+
+`findConfigProblem()` runs before anything else in the Function and checks the
+*shape* of the environment: that `RESEND_API_KEY` starts with `re_`, that
+`BOOKING_NOTIFICATION_EMAIL` is an address, and — named explicitly — that it is
+not itself a Resend key.
+
+That last case is not hypothetical. On 6 September both secrets were set to the
+Resend key. Everything downstream behaved: the Function ran, Resend
+authenticated, and only Resend's own field validation caught it, as a 502 that
+named nothing. Every booking failed for hours. The check now answers 503 with
+`BOOKING_NOTIFICATION_EMAIL holds a Resend API key, not an email address — the
+two secrets are swapped`.
+
+It runs **before request parsing** on purpose. A misconfigured endpoint is broken
+for everyone, so it must not look like a client error — and running first means
+the uptime monitor's probe, which expects 400, sees the 503 instead and alerts
+within fifteen minutes. A silent configuration mistake becomes a page.
+
+The logic lives in `src/lib/booking-config.ts` rather than inside the Function so
+it carries no Workers types and can be unit tested, the same split already used
+for `booking-validation.ts`.
+
+It checks shape, not correctness: nothing here can tell whether an address is the
+right mailbox, only that it is an address at all — which is what was broken.
 
 ### Rate limiting
 
