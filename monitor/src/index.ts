@@ -149,6 +149,24 @@ async function runChecks(env: Env): Promise<{ origin: string; results: CheckResu
   return { origin, results };
 }
 
+/** Shared by the cron and the manual trigger, so the alert path is the same one
+ *  a real outage would take - a monitor whose alerting cannot be exercised is a
+ *  monitor nobody has actually tested. */
+async function alertIfDue(
+  env: Env,
+  origin: string,
+  failures: readonly CheckResult[]
+): Promise<string> {
+  console.error("Monitor: checks failed —", JSON.stringify(failures));
+  if (!(await shouldAlert(env.MONITOR_STATE))) {
+    console.log("Monitor: alert suppressed, still inside the cooldown window.");
+    return "suppressed (cooldown)";
+  }
+  await sendAlert(env, origin, failures);
+  await markAlerted(env.MONITOR_STATE);
+  return "sent";
+}
+
 export default {
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
     ctx.waitUntil(
@@ -161,23 +179,29 @@ export default {
           return;
         }
 
-        console.error("Monitor: checks failed —", JSON.stringify(failures));
-        if (await shouldAlert(env.MONITOR_STATE)) {
-          await sendAlert(env, origin, failures);
-          await markAlerted(env.MONITOR_STATE);
-        } else {
-          console.log("Monitor: alert suppressed, still inside the cooldown window.");
-        }
+        await alertIfDue(env, origin, failures);
       })()
     );
   },
 
-  /** Manual trigger, so the monitor can be verified without waiting for cron. */
+  /**
+   * Manual trigger, so the monitor can be verified without waiting for cron.
+   * It takes the same alert path as the cron - including the cooldown, which
+   * also stops this public URL from being used to send mail repeatedly.
+   */
   async fetch(_request: Request, env: Env): Promise<Response> {
     const { origin, results } = await runChecks(env);
-    const healthy = results.every((r) => r.ok);
+    const failures = results.filter((r) => !r.ok);
+    const healthy = failures.length === 0;
+
+    const alert = healthy ? "not needed" : await alertIfDue(env, origin, failures);
+
     return new Response(
-      JSON.stringify({ healthy, origin, checkedAt: new Date().toISOString(), results }, null, 2),
+      JSON.stringify(
+        { healthy, alert, origin, checkedAt: new Date().toISOString(), results },
+        null,
+        2
+      ),
       {
         status: healthy ? 200 : 503,
         headers: { "Content-Type": "application/json" },
