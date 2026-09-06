@@ -1,0 +1,21 @@
+# Watches dependencies for published vulnerabilities and opens a pull request
+# when one needs updating. Free, and it runs whether or not anyone remembers to
+# look - which is the point: this project's protection should not depend on
+# somebody deciding to check.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # One PR for routine bumps instead of five; security fixes still come
+      # through on their own so they are not buried.
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

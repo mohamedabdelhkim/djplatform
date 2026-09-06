@@ -209,6 +209,46 @@ the build. The correct settings are:
 | Build command | `npm run build` |
 | Build output directory | `out` |
 
+### Automated deploys
+
+`.github/workflows/deploy.yml` runs on every push to `main`: verify secrets,
+install, typecheck, `npm test` (which builds and runs the full suite), then
+`wrangler pages deploy`. A failing test ships nothing.
+
+Two repository secrets are required, under
+**Settings → Secrets and variables → Actions**:
+
+| Secret | Value |
+| :--- | :--- |
+| `CLOUDFLARE_API_TOKEN` | API token with `Account → Cloudflare Pages → Edit` |
+| `CLOUDFLARE_ACCOUNT_ID` | Account ID, shown on the Workers & Pages page |
+
+The credential check is the first step, so a missing secret fails in seconds
+rather than after a full build. It fails rather than skipping the deploy: a
+green run that shipped nothing would be a false success.
+
+Cloudflare's own Git integration is not usable here. The project was created
+with `wrangler pages project create`, which makes it a **Direct Upload** project
+(`wrangler pages project list` shows `Git Provider: No`), and Cloudflare does not
+convert between the two.
+
+### Deploying by hand
+
+```bash
+npm run deploy
+```
+
+Runs the whole suite and only then uploads, so a broken build cannot reach
+production even when deploying manually. Use this rather than calling
+`wrangler pages deploy` directly.
+
+### Keeping dependencies current
+
+`.github/dependabot.yml` watches npm packages weekly and GitHub Actions monthly,
+opening a pull request when something needs updating. Routine minor and patch
+bumps are grouped into one PR; security fixes arrive separately so they are not
+buried in the noise.
+
 ### Deploying from the CLI
 
 The dashboard repeatedly steers Next.js repositories into the Worker/OpenNext
