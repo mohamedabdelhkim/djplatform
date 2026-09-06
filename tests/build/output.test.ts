@@ -50,7 +50,12 @@ describe("booking form accessibility", () => {
   // A placeholder is not a label.
   test("every form control is associated with a label element", () => {
     const page = html.index;
-    const controls = [...page.matchAll(/<(input|select|textarea)\b[^>]*>/g)];
+    // aria-hidden controls are excluded: the honeypot is deliberately hidden
+    // from assistive technology and is not a control a person can reach, so a
+    // label on it would be wrong rather than missing.
+    const controls = [...page.matchAll(/<(input|select|textarea)\b[^>]*>/g)].filter(
+      ([tag]) => !/aria-hidden="true"/.test(tag)
+    );
     assert.ok(controls.length >= 9, `expected the full booking form, found ${controls.length} controls`);
 
     const labelled = new Set([...page.matchAll(/<label[^>]*\bfor="([^"]+)"/g)].map((m) => m[1]));
@@ -120,4 +125,49 @@ describe("referenced assets exist in the export", () => {
       assert.ok(existsSync(path.join(OUT, ref.replace(/^\//, ""))), `${ref} is referenced but missing`);
     });
   }
+});
+
+describe("abuse hardening", () => {
+  test("the honeypot is rendered, hidden, and unreachable", () => {
+    const field = /<input[^>]*\bname="contact_reference"[^>]*>/.exec(html.index)?.[0];
+    assert.ok(field, "the honeypot input is missing from the built page");
+    assert.match(field, /aria-hidden="true"/, "the honeypot must be hidden from screen readers");
+    assert.match(field, /tabindex="-1"/i, "the honeypot must be out of the tab order");
+    assert.match(field, /autocomplete="off"/i, "the honeypot must not be autofilled");
+    assert.ok(
+      /left-\[-9999px\]|opacity-0/.test(field),
+      "the honeypot must be visually hidden"
+    );
+  });
+
+  test("the honeypot is not announced as a labelled field", () => {
+    const labelled = new Set(
+      [...html.index.matchAll(/<label[^>]*\bfor="([^"]+)"/g)].map((m) => m[1])
+    );
+    assert.ok(!labelled.has("contact_reference"), "the honeypot must not have a visible label");
+  });
+
+  test("security headers ship with the export", () => {
+    const headersFile = path.join(OUT, "_headers");
+    assert.ok(existsSync(headersFile), "out/_headers is missing - Cloudflare will send no security headers");
+    const contents = readFileSync(headersFile, "utf8");
+    for (const header of [
+      "X-Frame-Options",
+      "X-Content-Type-Options",
+      "Referrer-Policy",
+      "Permissions-Policy",
+      "Content-Security-Policy",
+    ]) {
+      assert.match(contents, new RegExp(header, "i"), `${header} is not declared`);
+    }
+  });
+
+  // A script-src or default-src directive would break Next.js hydration, and it
+  // would break it in the browser at runtime rather than at build time.
+  test("the CSP stays clear of directives that break hydration", () => {
+    const contents = readFileSync(path.join(OUT, "_headers"), "utf8");
+    const csp = /Content-Security-Policy:(.*)/i.exec(contents)?.[1] ?? "";
+    assert.ok(!/script-src|default-src/i.test(csp), "CSP must not restrict scripts here");
+    assert.match(csp, /frame-ancestors/i);
+  });
 });

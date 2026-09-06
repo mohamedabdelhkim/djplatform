@@ -15,6 +15,44 @@ interface BookingPayload {
   budget?: string;
   message?: string;
   websiteUrl?: string;
+  /** Honeypot. Hidden from users; only automated submissions fill it.
+   *  Deliberately NOT named company/organization/fax: those are autofill
+   *  tokens, and a browser filling this for a real person would discard a
+   *  genuine booking while showing them a success message. */
+  contact_reference?: string;
+}
+
+/**
+ * Hard limits, enforced before anything is dispatched.
+ *
+ * The endpoint is public and unauthenticated, so an unbounded body is both a
+ * cost and an abuse vector: a 4.8 MB payload was accepted and parsed before
+ * these were added.
+ */
+const MAX_BODY_BYTES = 64 * 1024;
+
+const MAX_FIELD_LENGTH: Record<keyof BookingPayload, number> = {
+  name: 120,
+  email: 254,
+  organization: 160,
+  eventName: 200,
+  eventDate: 32,
+  location: 200,
+  budget: 32,
+  message: 5000,
+  websiteUrl: 500,
+  contact_reference: 100,
+};
+
+/** Strips CR/LF and control characters, then truncates. Used for the subject,
+ *  which is assembled from user-supplied values. */
+function sanitizeHeaderValue(value: string, max = 160): string {
+  return value
+    .replace(/[\r\n\t]+/g, " ")
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u001f\u007f]/g, "")
+    .trim()
+    .slice(0, max);
 }
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {
@@ -30,7 +68,66 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
     }
 
-    const data = (await context.request.json()) as BookingPayload;
+    const declaredLength = Number(context.request.headers.get("content-length") || 0);
+    if (declaredLength > MAX_BODY_BYTES) {
+      return new Response(
+        JSON.stringify({ error: "Request body is too large." }),
+        {
+          status: 413,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    const rawBody = await context.request.text();
+    if (rawBody.length > MAX_BODY_BYTES) {
+      return new Response(
+        JSON.stringify({ error: "Request body is too large." }),
+        {
+          status: 413,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    let data: BookingPayload;
+    try {
+      data = JSON.parse(rawBody) as BookingPayload;
+    } catch {
+      return new Response(
+        JSON.stringify({ error: "Malformed JSON body." }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    // Honeypot: `company` is hidden from real users. A filled value means an
+    // automated submission. Accept it so the bot sees success and does not
+    // retry, but dispatch nothing.
+    if (typeof data.contact_reference === "string" && data.contact_reference.trim() !== "") {
+      return new Response(
+        JSON.stringify({ success: true, message: "Booking inquiry received." }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    for (const [field, limit] of Object.entries(MAX_FIELD_LENGTH)) {
+      const value = data[field as keyof BookingPayload];
+      if (typeof value === "string" && value.length > limit) {
+        return new Response(
+          JSON.stringify({ error: `Field "${field}" exceeds the maximum length of ${limit} characters.` }),
+          {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+    }
 
     // Validate required fields
     if (!data.name || !data.email || !data.message) {
@@ -87,7 +184,9 @@ ${data.message}
           from: fromSender,
           to: [recipientEmail],
           reply_to: data.email,
-          subject: `[Booking Inquiry] ${data.eventName || "New Request"} - ${data.name}`,
+          subject: sanitizeHeaderValue(
+            `[Booking Inquiry] ${data.eventName || "New Request"} - ${data.name}`
+          ),
           text: emailContent,
         }),
       });

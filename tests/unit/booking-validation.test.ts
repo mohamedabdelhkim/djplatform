@@ -1,6 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { validate } from "@/lib/booking-validation";
+import { validate, MAX_FIELD_LENGTH } from "@/lib/booking-validation";
 import type { BookingRequest } from "@/types/booking";
 
 const VALID: BookingRequest = {
@@ -105,5 +105,27 @@ describe("validate()", () => {
       );
     }
     assert.ok(validate({ ...VALID, email: "not-an-email" }).email);
+  });
+
+  describe("length limits", () => {
+    // These mirror the server's limits. The server is the control; this is so
+    // an over-long field is reported inline instead of as a generic rejection.
+    for (const [field, limit] of Object.entries(MAX_FIELD_LENGTH)) {
+      const key = field as keyof typeof MAX_FIELD_LENGTH;
+
+      test(`${field} accepts input at exactly ${limit} characters`, () => {
+        const value = key === "email" ? "a".repeat(limit - 12) + "@example.com" : "x".repeat(limit);
+        assert.equal(validate({ ...VALID, [key]: value })[key], undefined);
+      });
+
+      test(`${field} rejects input one character over ${limit}`, () => {
+        const errors = validate({ ...VALID, [key]: "x".repeat(limit + 1) });
+        assert.ok(errors[key], `expected a length error for ${field}`);
+      });
+    }
+
+    test("a multi-megabyte message is rejected", () => {
+      assert.ok(validate({ ...VALID, message: "x".repeat(5_000_000) }).message);
+    });
   });
 });

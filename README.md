@@ -321,3 +321,53 @@ Contract tests against the deployed Function (`wrangler pages dev` + real
 requests to `/api/booking`) are deliberately deferred — they need a server
 process and would slow the suite. Until then the endpoint's status codes are
 only verified by hand, per the deployment section above.
+
+---
+
+## 11. Security posture
+
+`/api/booking` is public, unauthenticated, and spends money (Resend quota) on
+every accepted request. It is the only attack surface that costs anything.
+
+### What is enforced
+
+| Control | Where | Behaviour |
+| :--- | :--- | :--- |
+| Body size cap (64 KB) | `functions/api/booking.ts` | 413 before the JSON is parsed |
+| Per-field length limits | Function, mirrored in `booking-validation.ts` | 400 naming the field |
+| Honeypot (`contact_reference`) | Hidden input + Function | 200 with nothing dispatched |
+| Subject sanitisation | `sanitizeHeaderValue()` | CR/LF and control characters stripped, truncated |
+| Security headers | `public/_headers` | CSP `frame-ancestors`, HSTS, XFO, Permissions-Policy, COOP |
+
+Before these, a 4.8 MB payload was accepted and parsed, and twelve requests in a
+row were processed without any throttling.
+
+The honeypot is deliberately **not** named `company`, `organization` or `fax`.
+Those are browser autofill tokens; a browser filling the trap for a real visitor
+would discard a genuine booking while showing them a success message.
+
+### Residual risks, in order
+
+1. **No true rate limiting.** The honeypot stops naive bots, not a determined
+   attacker varying payloads. Real throttling needs per-IP state, which the
+   architecture has no store for. The fix is a Cloudflare **WAF rate limiting
+   rule** on `/api/booking` — free tier, dashboard only, no code. Recommended
+   before the site gets any traffic.
+2. **Resend quota.** Sustained abuse still exhausts the plan's daily send limit,
+   after which genuine bookings fail. Rate limiting is the mitigation.
+3. **No persistence.** If Resend rejects a message the inquiry is gone — there is
+   no store to retry from. Accepted: the spec forbids a database in this phase.
+   The Function does return a failure rather than a false success, so the sender
+   knows to try again.
+4. **Sandbox sender.** With `BOOKING_FROM_EMAIL` unset, delivery only reaches the
+   Resend account owner. Changing `BOOKING_NOTIFICATION_EMAIL` to any other
+   address fails silently — Resend accepts and drops. No code can detect this.
+5. **Deploy token expires 6 December 2026.** Deploys start failing then; the live
+   site is unaffected.
+
+### Deliberately not done
+
+- **CAPTCHA** — the spec rules out third-party interactive widgets, and it taxes
+  every genuine promoter to stop bots a honeypot already catches.
+- **A restrictive `script-src` CSP** — Next.js hydration uses inline scripts. A
+  wrong value breaks the site in the browser, not at build time.

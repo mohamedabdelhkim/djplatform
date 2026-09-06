@@ -56,7 +56,8 @@ describe("submitBookingRequest()", () => {
       (calls[0].init.headers as Record<string, string>)["Content-Type"],
       "application/json"
     );
-    assert.deepEqual(JSON.parse(calls[0].init.body as string), REQUEST);
+    // The wire payload is the booking plus the honeypot field.
+    assert.deepEqual(JSON.parse(calls[0].init.body as string), { ...REQUEST, contact_reference: "" });
   });
 
   test("passes a successful response through", async () => {
@@ -128,5 +129,30 @@ describe("submitBookingRequest()", () => {
       assert.equal(typeof result.success, "boolean");
       assert.equal(typeof result.message, "string");
     }
+  });
+
+  describe("honeypot", () => {
+    test("sends an empty honeypot field by default", async () => {
+      stubFetch(() => jsonResponse(200, { success: true, message: "ok" }));
+      await submitBookingRequest(REQUEST);
+      const body = JSON.parse(calls[0].init.body as string);
+      assert.equal(body.contact_reference, "");
+    });
+
+    test("forwards a filled honeypot so the server can drop the submission", async () => {
+      stubFetch(() => jsonResponse(200, { success: true, message: "ok" }));
+      await submitBookingRequest(REQUEST, "acme corp");
+      const body = JSON.parse(calls[0].init.body as string);
+      assert.equal(body.contact_reference, "acme corp");
+    });
+
+    test("the honeypot stays out of BookingRequest", async () => {
+      stubFetch(() => jsonResponse(200, { success: true, message: "ok" }));
+      await submitBookingRequest(REQUEST, "bot");
+      const body = JSON.parse(calls[0].init.body as string);
+      for (const key of Object.keys(REQUEST)) {
+        assert.deepEqual(body[key], REQUEST[key as keyof typeof REQUEST]);
+      }
+    });
   });
 });

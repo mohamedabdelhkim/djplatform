@@ -22,6 +22,23 @@ export interface FormErrors {
 
 export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/**
+ * Mirrors MAX_FIELD_LENGTH in functions/api/booking.ts, so oversized input is
+ * reported inline instead of coming back as a generic server rejection. The
+ * server enforces the same limits regardless - this is UX, not the control.
+ */
+export const MAX_FIELD_LENGTH = {
+  name: 120,
+  email: 254,
+  organization: 160,
+  eventName: 200,
+  eventDate: 32,
+  location: 200,
+  budget: 32,
+  message: 5000,
+  websiteUrl: 500,
+} as const;
+
 export function validate(form: BookingRequest): FormErrors {
   const errors: FormErrors = {};
 
@@ -57,6 +74,14 @@ export function validate(form: BookingRequest): FormErrors {
 
   if (!form.message.trim()) {
     errors.message = "Booking inquiry details are required.";
+  }
+
+  for (const [field, limit] of Object.entries(MAX_FIELD_LENGTH)) {
+    const key = field as keyof typeof MAX_FIELD_LENGTH;
+    const value = form[key];
+    if (typeof value === "string" && value.length > limit) {
+      errors[key] = `Please keep this under ${limit} characters.`;
+    }
   }
 
   return errors;

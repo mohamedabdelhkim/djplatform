@@ -1,0 +1,12 @@
+# Security headers for every response. Cloudflare Pages reads this file from the
+# build output root. Deliberately conservative: no script-src or default-src,
+# because Next.js hydration relies on inline scripts and a wrong value here
+# breaks the site silently in the browser rather than at build time.
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=(), usb=()
+  Strict-Transport-Security: max-age=31536000
+  Content-Security-Policy: frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+  Cross-Origin-Opener-Policy: same-origin

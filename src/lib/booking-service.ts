@@ -12,7 +12,8 @@ const BOOKING_API_ENDPOINT = "/api/booking";
  * are normalized into a BookingResponse with success: false and a human-readable message.
  */
 export async function submitBookingRequest(
-  request: BookingRequest
+  request: BookingRequest,
+  honeypot: string = ""
 ): Promise<BookingResponse> {
   try {
     const response = await fetch(BOOKING_API_ENDPOINT, {
@@ -20,7 +21,10 @@ export async function submitBookingRequest(
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(request),
+      // `contact_reference` is the honeypot. It stays out of BookingRequest so the domain
+      // type describes a booking, not the anti-spam mechanism; the transport
+      // layer is where wire concerns belong.
+      body: JSON.stringify({ ...request, contact_reference: honeypot }),
     });
 
     let responseData: { success?: boolean; message?: string; error?: string } | null = null;

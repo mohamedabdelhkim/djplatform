@@ -35,6 +35,8 @@ const INITIAL_FORM: BookingRequest = {
 
 export function BookingSection() {
   const [form, setForm] = useState<BookingRequest>(INITIAL_FORM);
+  // Honeypot. Left empty by people; automated submissions fill every input.
+  const [honeypot, setHoneypot] = useState("");
   const [errors, setErrors] = useState<FormErrors>({});
   const [status, setStatus] = useState<BookingSubmissionStatus>("idle");
   const [responseMessage, setResponseMessage] = useState<string>("");
@@ -71,7 +73,7 @@ export function BookingSection() {
     setStatus("submitting");
     setResponseMessage("");
 
-    const response = await submitBookingRequest(form);
+    const response = await submitBookingRequest(form, honeypot);
 
     if (response.success) {
       setStatus("success");
@@ -141,6 +143,21 @@ export function BookingSection() {
           )}
 
           <form onSubmit={handleSubmit} noValidate className="space-y-4">
+            {/* Honeypot: positioned off-screen rather than display:none, which
+                some bots detect. aria-hidden and tabIndex keep it away from
+                screen readers and keyboard users, so it is not a control a
+                person can reach. */}
+            <input
+              type="text"
+              name="contact_reference"
+              value={honeypot}
+              onChange={(e) => setHoneypot(e.target.value)}
+              tabIndex={-1}
+              autoComplete="off"
+              aria-hidden="true"
+              className="absolute left-[-9999px] h-px w-px opacity-0"
+            />
+
             <div className="grid gap-4 sm:grid-cols-2">
               <Input
                 id="booking-name"
