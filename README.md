@@ -182,3 +182,81 @@ npm run dev
 # Compile static export to the /out directory
 npm run build
 ```
+
+---
+
+## 9. Deployment (Cloudflare Pages)
+
+Live at `https://djplatform.pages.dev`.
+
+### It must be a Pages project, not a Worker
+
+`functions/api/booking.ts` exports `onRequestPost: PagesFunction<Env>` — Pages
+Functions file-based routing, which is a Pages-only feature. A Cloudflare
+**Worker** does not read the `functions/` directory, so deploying this repo as a
+Worker yields a working static site whose `/api/booking` returns 404.
+
+### Do not accept the Next.js framework preset
+
+Cloudflare detects `next.config.ts` and offers a Next.js preset whose build
+command is `npx opennextjs-cloudflare build`. That adapter converts the app into
+a Worker with a dynamic runtime, which contradicts `output: 'export'` and fails
+the build. The correct settings are:
+
+| Setting | Value |
+| :--- | :--- |
+| Framework preset | **None** |
+| Build command | `npm run build` |
+| Build output directory | `out` |
+
+### Deploying from the CLI
+
+The dashboard repeatedly steers Next.js repositories into the Worker/OpenNext
+path. The CLI creates a Pages project unambiguously:
+
+```bash
+npx wrangler login
+npx wrangler pages project create djplatform --production-branch main
+npm run build
+npx wrangler pages deploy out --project-name djplatform
+```
+
+`wrangler pages deploy` uploads `out/` and separately compiles the `functions/`
+directory into the Functions bundle. The log line confirming this is
+`Uploading Functions bundle`.
+
+### Secrets
+
+Set them interactively so the values never land in a file:
+
+```bash
+npx wrangler pages secret put RESEND_API_KEY --project-name djplatform
+npx wrangler pages secret put BOOKING_NOTIFICATION_EMAIL --project-name djplatform
+```
+
+**Environment variables only take effect on a new deployment.** After adding or
+changing one, run `wrangler pages deploy` again — otherwise the Function keeps
+using the previous values and returns 503.
+
+### Resend delivery limits
+
+While `BOOKING_FROM_EMAIL` is unset, the Function sends from Resend's sandbox
+address, which delivers **only to the address that owns the Resend account**. If
+`BOOKING_NOTIFICATION_EMAIL` is any other address, Resend accepts the request and
+drops the message: the API reports success and nothing arrives. Verify a domain
+in Resend and set `BOOKING_FROM_EMAIL` to send from your own address.
+
+### Node version
+
+`.nvmrc` pins Node 22. Cloudflare reads it; without it the build can run on a
+Node older than the 20.9 that Next.js 16 requires.
+
+### Exercising the Function locally
+
+`next dev` does not serve the `functions/` directory, so `/api/booking` returns
+404 in local development. To run the real endpoint:
+
+```bash
+npm run build
+npx wrangler pages dev out
+```
