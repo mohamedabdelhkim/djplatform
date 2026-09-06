@@ -171,29 +171,3 @@ describe("abuse hardening", () => {
     assert.match(csp, /frame-ancestors/i);
   });
 });
-
-describe("Turnstile", () => {
-  test("the widget container ships with the page", () => {
-    const widget = /<div[^>]*class="cf-turnstile"[^>]*>/.exec(html.index)?.[0];
-    assert.ok(widget, "the Turnstile widget container is missing from the built page");
-    assert.match(widget, /data-sitekey="0x[A-Za-z0-9]+"/, "the widget has no site key");
-  });
-
-  test("the challenge script is referenced", () => {
-    assert.match(
-      html.index,
-      /challenges\.cloudflare\.com\/turnstile\/v0\/api\.js/,
-      "the Turnstile script is not loaded"
-    );
-  });
-
-  // The CSP has no script-src or frame-src, so the widget's script and iframe
-  // are allowed. Adding either directive later without listing
-  // challenges.cloudflare.com would break the booking form in the browser only.
-  test("the CSP does not block the challenge", () => {
-    const csp = /Content-Security-Policy:(.*)/i.exec(
-      readFileSync(path.join(OUT, "_headers"), "utf8")
-    )?.[1] ?? "";
-    assert.ok(!/script-src|frame-src|default-src/i.test(csp));
-  });
-});

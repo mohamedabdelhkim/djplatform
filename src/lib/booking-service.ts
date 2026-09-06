@@ -13,8 +13,7 @@ const BOOKING_API_ENDPOINT = "/api/booking";
  */
 export async function submitBookingRequest(
   request: BookingRequest,
-  honeypot: string = "",
-  turnstileToken?: string
+  honeypot: string = ""
 ): Promise<BookingResponse> {
   try {
     const response = await fetch(BOOKING_API_ENDPOINT, {
@@ -25,7 +24,7 @@ export async function submitBookingRequest(
       // `contact_reference` is the honeypot. It stays out of BookingRequest so the domain
       // type describes a booking, not the anti-spam mechanism; the transport
       // layer is where wire concerns belong.
-      body: JSON.stringify({ ...request, contact_reference: honeypot, turnstileToken }),
+      body: JSON.stringify({ ...request, contact_reference: honeypot }),
     });
 
     let responseData: { success?: boolean; message?: string; error?: string } | null = null;

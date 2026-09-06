@@ -155,30 +155,4 @@ describe("submitBookingRequest()", () => {
       }
     });
   });
-
-  describe("Turnstile token", () => {
-    test("forwards the token when the widget produced one", async () => {
-      stubFetch(() => jsonResponse(200, { success: true, message: "ok" }));
-      await submitBookingRequest(REQUEST, "", "tok_abc123");
-      assert.equal(JSON.parse(calls[0].init.body as string).turnstileToken, "tok_abc123");
-    });
-
-    // The server fails closed on a missing token, so the absence has to reach
-    // it rather than being quietly filled in with something.
-    test("omits the token when the widget produced none", async () => {
-      stubFetch(() => jsonResponse(200, { success: true, message: "ok" }));
-      await submitBookingRequest(REQUEST);
-      const body = JSON.parse(calls[0].init.body as string);
-      assert.equal(body.turnstileToken, undefined);
-    });
-
-    test("surfaces the server's verification failure to the caller", async () => {
-      stubFetch(() =>
-        jsonResponse(403, { success: false, error: "Verification failed. Please reload the page and try again." })
-      );
-      const result = await submitBookingRequest(REQUEST, "", "stale-token");
-      assert.equal(result.success, false);
-      assert.match(result.message, /Verification failed/);
-    });
-  });
 });

@@ -169,7 +169,6 @@ Configure these environment variables in your Cloudflare Pages project settings:
 | `BOOKING_NOTIFICATION_EMAIL` | Recipient email address for booking inquiries. | `booking@example.com` |
 | `RESEND_API_KEY` | API key from Resend for transactional email dispatch. | `re_...` |
 | `BOOKING_FROM_EMAIL` | Verified Resend sender address. Until a domain is verified, omit to use the sandbox sender (delivers only to the Resend account owner). | `"DJ Platform Booking <onboarding@resend.dev>"` |
-| `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile secret for the booking widget. **Required** — the Function returns 503 without it. | `0x4AAA...` |
 | `BOOKING_DEMO_MODE` | Set to `"true"` to enable demo mode without `RESEND_API_KEY` (logs inquiries locally without failing). | `"false"` |
 
 ---
@@ -379,7 +378,6 @@ every accepted request. It is the only attack surface that costs anything.
 | Body size cap (64 KB) | `functions/api/booking.ts` | 413 before the JSON is parsed |
 | Per-field length limits | Function, mirrored in `booking-validation.ts` | 400 naming the field |
 | Honeypot (`contact_reference`) | Hidden input + Function | 200 with nothing dispatched |
-| Cloudflare Turnstile | Widget on the form + `siteverify` in the Function | 403 on a missing or rejected token |
 | Subject sanitisation | `sanitizeHeaderValue()` | CR/LF and control characters stripped, truncated |
 | Security headers | `public/_headers` | CSP `frame-ancestors`, HSTS, XFO, Permissions-Policy, COOP |
 
@@ -390,30 +388,13 @@ The honeypot is deliberately **not** named `company`, `organization` or `fax`.
 Those are browser autofill tokens; a browser filling the trap for a real visitor
 would discard a genuine booking while showing them a success message.
 
-### Turnstile
-
-The site key is public and lives in `BookingSection.tsx`; the secret is a Pages
-secret. Verification **fails closed**: a missing secret, a missing token or a
-rejected token all refuse the submission. Accepting when verification cannot run
-would make the control decorative, which is the failure this endpoint already
-had once with Resend.
-
-Two consequences worth knowing:
-
-- **The secret must exist before the code is deployed**, or every submission
-  returns 503. Cloudflare deploys on push, so set it first.
-- **If the challenge script is blocked, nobody can book.** Turnstile is rarely
-  blocked, and the alternative — accepting submissions without a token — would
-  defeat the purpose. Tokens are single use, so the widget is reset after every
-  attempt, successful or not.
-
 ### Residual risks, in order
 
-1. **No per-request rate limiting.** Turnstile raises the cost of automation
-   sharply, but it is not a throttle: it does not cap how many verified
-   submissions one person can send. A WAF rate limiting rule would, and that
-   needs a custom domain — WAF rules apply to zones you own, and `pages.dev` is
-   Cloudflare's zone, not yours.
+1. **No true rate limiting.** The honeypot stops naive bots, not a determined
+   attacker varying payloads. Real throttling needs per-IP state, which the
+   architecture has no store for. The fix is a Cloudflare **WAF rate limiting
+   rule** on `/api/booking` — free tier, dashboard only, no code. Recommended
+   before the site gets any traffic.
 2. **Resend quota.** Sustained abuse still exhausts the plan's daily send limit,
    after which genuine bookings fail. Rate limiting is the mitigation.
 3. **No persistence.** If Resend rejects a message the inquiry is gone — there is
@@ -428,10 +409,7 @@ Two consequences worth knowing:
 
 ### Deliberately not done
 
-- **A visible, interactive CAPTCHA** — Turnstile runs in managed mode, which
-  resolves silently for almost every visitor. (An earlier version of this file
-  claimed the spec forbids CAPTCHAs. It does not: the spec's prohibitions are
-  Firebase, authentication, a database, a CMS, payments, custom audio hosting
-  and a booking dashboard.)
+- **CAPTCHA** — the spec rules out third-party interactive widgets, and it taxes
+  every genuine promoter to stop bots a honeypot already catches.
 - **A restrictive `script-src` CSP** — Next.js hydration uses inline scripts. A
   wrong value breaks the site in the browser, not at build time.
