@@ -133,7 +133,20 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     let data: BookingPayload;
     try {
-      data = JSON.parse(rawBody) as BookingPayload;
+      const parsed: unknown = JSON.parse(rawBody);
+      // `null`, `true`, `42` and `[]` are all valid JSON but not a booking.
+      // Without this guard `null` reached the field checks and threw, turning a
+      // malformed request into a 500 that looks like a server fault.
+      if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return new Response(
+          JSON.stringify({ error: "Request body must be a JSON object." }),
+          {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+      data = parsed as BookingPayload;
     } catch {
       return new Response(
         JSON.stringify({ error: "Malformed JSON body." }),
