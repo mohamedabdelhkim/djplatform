@@ -1,4 +1,7 @@
 interface Env {
+  /** KV namespace used only as a short-lived per-IP counter. Optional: when the
+   *  binding is absent the endpoint still works, unthrottled. */
+  BOOKING_RATE_LIMIT?: KVNamespace;
   BOOKING_NOTIFICATION_EMAIL?: string;
   RESEND_API_KEY?: string;
   BOOKING_FROM_EMAIL?: string;
@@ -53,6 +56,44 @@ function sanitizeHeaderValue(value: string, max = 160): string {
     .replace(/[\u0000-\u001f\u007f]/g, "")
     .trim()
     .slice(0, max);
+}
+
+/** Requests allowed per IP inside RATE_WINDOW_SECONDS. */
+const RATE_LIMIT = 5;
+const RATE_WINDOW_SECONDS = 600;
+
+/**
+ * Best-effort per-IP throttle backed by Workers KV.
+ *
+ * Fails OPEN, unlike every other check in this file. A throttle is a mitigation,
+ * not a security boundary: if the counter store is unavailable, refusing every
+ * booking would turn a storage blip into an outage, and the honeypot, size cap,
+ * length limits and validation all still apply. Turnstile failed closed because
+ * it answers "is this a person" - a question you cannot skip.
+ *
+ * KV has no atomic increment and is eventually consistent, so a burst arriving
+ * at once can slip a couple of requests past the limit. That is acceptable here:
+ * the goal is to stop sustained automated abuse, not to enforce an exact quota.
+ *
+ * Once an IP is over the limit no further writes happen - only a read - so a
+ * flood cannot burn through the daily KV write allowance.
+ */
+async function withinRateLimit(
+  store: KVNamespace | undefined,
+  ip: string | null
+): Promise<boolean> {
+  if (!store || !ip) return true;
+
+  const key = `rl:${ip}`;
+  try {
+    const used = Number(await store.get(key)) || 0;
+    if (used >= RATE_LIMIT) return false;
+    await store.put(key, String(used + 1), { expirationTtl: RATE_WINDOW_SECONDS });
+    return true;
+  } catch (error) {
+    console.error("Rate limit store unavailable, allowing request:", error);
+    return true;
+  }
 }
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {
@@ -112,6 +153,25 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         {
           status: 200,
           headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    // Placed after the honeypot so submissions the honeypot already catches
+    // cost no KV write, and before Resend so abuse never reaches the paid path.
+    const clientIp = context.request.headers.get("cf-connecting-ip");
+    if (!(await withinRateLimit(context.env.BOOKING_RATE_LIMIT, clientIp))) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Too many booking requests from this address. Please try again in a few minutes.",
+        }),
+        {
+          status: 429,
+          headers: {
+            "Content-Type": "application/json",
+            "Retry-After": String(RATE_WINDOW_SECONDS),
+          },
         }
       );
     }

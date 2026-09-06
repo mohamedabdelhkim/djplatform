@@ -1,0 +1,13 @@
+{
+  "// note": "functions/ is excluded from the app tsconfig because it targets the Workers runtime, not the browser. It still holds every server-side protection, so it gets its own check rather than none.",
+  "compilerOptions": {
+    "strict": true,
+    "target": "es2022",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": ["@cloudflare/workers-types"]
+  },
+  "include": ["functions/**/*.ts"]
+}

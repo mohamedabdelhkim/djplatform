@@ -169,6 +169,7 @@ Configure these environment variables in your Cloudflare Pages project settings:
 | `BOOKING_NOTIFICATION_EMAIL` | Recipient email address for booking inquiries. | `booking@example.com` |
 | `RESEND_API_KEY` | API key from Resend for transactional email dispatch. | `re_...` |
 | `BOOKING_FROM_EMAIL` | Verified Resend sender address. Until a domain is verified, omit to use the sandbox sender (delivers only to the Resend account owner). | `"DJ Platform Booking <onboarding@resend.dev>"` |
+| `BOOKING_RATE_LIMIT` | KV namespace **binding** (not a variable), set under Settings → Bindings. Optional: without it the endpoint is unthrottled. | — |
 | `BOOKING_DEMO_MODE` | Set to `"true"` to enable demo mode without `RESEND_API_KEY` (logs inquiries locally without failing). | `"false"` |
 
 ---
@@ -346,6 +347,11 @@ HTML**, not types.
   and past events partition the schedule, ids are unique, every gallery image
   has real alt text and dimensions matching its declared ratio.
 
+**`npm run typecheck:functions`** — `functions/` targets the Workers runtime, so
+it sits outside the app's `tsconfig.json` and was going unchecked despite holding
+every server-side protection. It has its own config now and runs first in
+`npm test`.
+
 **`tests/build/`** — assertions against the real static export in `out/`.
 - Every form control has a matching `<label for>`.
 - The status live region is present in the HTML at build time, not mounted only
@@ -378,6 +384,7 @@ every accepted request. It is the only attack surface that costs anything.
 | Body size cap (64 KB) | `functions/api/booking.ts` | 413 before the JSON is parsed |
 | Per-field length limits | Function, mirrored in `booking-validation.ts` | 400 naming the field |
 | Honeypot (`contact_reference`) | Hidden input + Function | 200 with nothing dispatched |
+| Per-IP throttle (Workers KV) | `withinRateLimit()` in the Function | 429 after 5 requests in 10 minutes |
 | Subject sanitisation | `sanitizeHeaderValue()` | CR/LF and control characters stripped, truncated |
 | Security headers | `public/_headers` | CSP `frame-ancestors`, HSTS, XFO, Permissions-Policy, COOP |
 
@@ -388,23 +395,49 @@ The honeypot is deliberately **not** named `company`, `organization` or `fax`.
 Those are browser autofill tokens; a browser filling the trap for a real visitor
 would discard a genuine booking while showing them a success message.
 
+### Rate limiting
+
+`withinRateLimit()` counts requests per `cf-connecting-ip` in a Workers KV
+namespace bound as `BOOKING_RATE_LIMIT`, allowing 5 per 10 minutes and answering
+429 beyond that.
+
+It **fails open**, unlike every other check here. A throttle is a mitigation, not
+a security boundary: if the counter store is unavailable, refusing every booking
+would turn a storage blip into an outage, while the honeypot, size cap, length
+limits and validation all still apply. The binding is optional for the same
+reason — without it the endpoint runs unthrottled rather than refusing traffic.
+Turnstile failed closed because it answers "is this a person", a question you
+cannot skip.
+
+Once an IP is over the limit no further writes happen, only a read, so a flood
+cannot burn through the daily KV write allowance.
+
+KV is used as a counter with a TTL, not as a store of application data. No
+booking is written to it, which is why this does not cross the spec's
+prohibition on adding a database.
+
 ### Residual risks, in order
 
-1. **No true rate limiting.** The honeypot stops naive bots, not a determined
-   attacker varying payloads. Real throttling needs per-IP state, which the
-   architecture has no store for. The fix is a Cloudflare **WAF rate limiting
-   rule** on `/api/booking` — free tier, dashboard only, no code. Recommended
-   before the site gets any traffic.
-2. **Resend quota.** Sustained abuse still exhausts the plan's daily send limit,
+1. **The throttle is best-effort, not a guarantee.** Workers KV has no atomic
+   increment and is eventually consistent, so a simultaneous burst can slip a
+   couple of requests past the limit. It stops sustained automated abuse, which
+   is what this endpoint is exposed to; it is not an exact quota. A WAF rate
+   limiting rule would be enforced before the request ever reached the Function,
+   but WAF rules apply to zones you own and `pages.dev` is Cloudflare's zone.
+2. **No Turnstile.** Two widgets with two site keys both returned `110200`
+   (hostname not allowed) for `djplatform.pages.dev`, while the integration
+   itself was verified rendering and submitting in a browser. `pages.dev` being
+   a shared domain is the likely cause, so this waits on a custom domain.
+3. **Resend quota.** Sustained abuse still exhausts the plan's daily send limit,
    after which genuine bookings fail. Rate limiting is the mitigation.
-3. **No persistence.** If Resend rejects a message the inquiry is gone — there is
+4. **No persistence.** If Resend rejects a message the inquiry is gone — there is
    no store to retry from. Accepted: the spec forbids a database in this phase.
    The Function does return a failure rather than a false success, so the sender
    knows to try again.
-4. **Sandbox sender.** With `BOOKING_FROM_EMAIL` unset, delivery only reaches the
+5. **Sandbox sender.** With `BOOKING_FROM_EMAIL` unset, delivery only reaches the
    Resend account owner. Changing `BOOKING_NOTIFICATION_EMAIL` to any other
    address fails silently — Resend accepts and drops. No code can detect this.
-5. **Deploy token expires 6 December 2026.** Deploys start failing then; the live
+6. **Deploy token expires 6 December 2026.** Deploys start failing then; the live
    site is unaffected.
 
 ### Deliberately not done

@@ -6,9 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "npm run build && node --import ./tests/support/alias-hook.mjs --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"tests/**/*.test.ts\"",
+    "test": "npm run typecheck:functions && npm run build && node --import ./tests/support/alias-hook.mjs --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"tests/**/*.test.ts\"",
     "test:unit": "node --import ./tests/support/alias-hook.mjs --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"tests/unit/**/*.test.ts\"",
-    "deploy": "npm test && npx wrangler pages deploy out --project-name djplatform"
+    "deploy": "npm test && npx wrangler pages deploy out --project-name djplatform",
+    "typecheck:functions": "tsc --noEmit -p tsconfig.functions.json"
   },
   "dependencies": {
     "clsx": "^2.1.1",
