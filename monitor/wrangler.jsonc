@@ -1,0 +1,28 @@
+{
+  // Standalone monitoring Worker. Kept out of the Pages project on purpose: a
+  // monitor deployed alongside the thing it watches goes down with it.
+  "name": "djplatform-monitor",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-06",
+  "observability": { "enabled": true },
+
+  // Every 15 minutes. Frequent enough that an outage is caught within a
+  // quarter hour, infrequent enough to stay far inside the free tier and to
+  // avoid the monitor itself tripping the booking endpoint's rate limit.
+  "triggers": {
+    "crons": ["*/15 * * * *"]
+  },
+
+  "vars": {
+    "SITE_ORIGIN": "https://djplatform.pages.dev"
+  },
+
+  // Shared with the booking Function, used only for the alert-cooldown key so
+  // an ongoing outage does not mail every fifteen minutes.
+  "kv_namespaces": [
+    {
+      "binding": "MONITOR_STATE",
+      "id": "8ea9b271634b49e7bc178fe8c4ef44e2"
+    }
+  ]
+}
