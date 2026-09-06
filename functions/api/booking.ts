@@ -1,17 +1,20 @@
 interface Env {
   BOOKING_NOTIFICATION_EMAIL?: string;
   RESEND_API_KEY?: string;
+  BOOKING_FROM_EMAIL?: string;
+  BOOKING_DEMO_MODE?: string;
 }
 
 interface BookingPayload {
   name?: string;
   email?: string;
-  message?: string;
   organization?: string;
   eventName?: string;
   eventDate?: string;
   location?: string;
   budget?: string;
+  message?: string;
+  websiteUrl?: string;
 }
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {
@@ -54,6 +57,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     const recipientEmail = context.env.BOOKING_NOTIFICATION_EMAIL || "booking@example.com";
     const resendApiKey = context.env.RESEND_API_KEY;
+    const fromSender = context.env.BOOKING_FROM_EMAIL || "DJ Platform Booking <onboarding@resend.dev>";
 
     // Forward to Resend if API key is configured
     if (resendApiKey) {
@@ -67,6 +71,7 @@ Event: ${data.eventName || "N/A"}
 Date: ${data.eventDate || "N/A"}
 Location: ${data.location || "N/A"}
 Budget: ${data.budget || "N/A"}
+Website: ${data.websiteUrl || "N/A"}
 
 Message:
 ${data.message}
@@ -79,7 +84,7 @@ ${data.message}
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          from: "DJ Platform Booking <onboarding@resend.dev>",
+          from: fromSender,
           to: [recipientEmail],
           reply_to: data.email,
           subject: `[Booking Inquiry] ${data.eventName || "New Request"} - ${data.name}`,
@@ -91,35 +96,67 @@ ${data.message}
         const errorText = await resendResponse.text();
         console.error("Resend API error:", errorText);
         return new Response(
-          JSON.stringify({ error: "Failed to dispatch notification email via Resend." }),
+          JSON.stringify({
+            success: false,
+            error: "Failed to dispatch notification email via Resend.",
+          }),
           {
             status: 502,
             headers: { "Content-Type": "application/json" },
           }
         );
       }
-    } else {
-      // Demo / Development mode (no API key configured)
-      console.log("[DEMO MODE] Booking inquiry processed without Resend API key:", {
-        recipientEmail,
-        data,
-      });
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: "Booking inquiry transmitted successfully.",
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
     }
 
+    // No RESEND_API_KEY configured
+    if (context.env.BOOKING_DEMO_MODE === "true") {
+      console.log("[DEMO MODE] Booking inquiry processed without Resend API key:", {
+        recipientEmail,
+        fromSender,
+        data,
+      });
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: "[DEMO MODE] Booking inquiry recorded locally. No email dispatched.",
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    console.error("Booking service error: RESEND_API_KEY is not configured.");
     return new Response(
       JSON.stringify({
-        success: true,
-        message: "Booking inquiry transmitted successfully.",
+        success: false,
+        error: "Booking service is not configured. RESEND_API_KEY environment variable is missing.",
       }),
       {
-        status: 200,
+        status: 503,
         headers: { "Content-Type": "application/json" },
       }
     );
   } catch (error) {
     console.error("Booking handler error:", error);
     return new Response(
-      JSON.stringify({ error: "Internal server error processing booking request." }),
+      JSON.stringify({
+        success: false,
+        error: "Internal server error processing booking request.",
+      }),
       {
         status: 500,
         headers: { "Content-Type": "application/json" },

@@ -15,8 +15,7 @@ A mobile-first, ultra-fast DJ portfolio, Electronic Press Kit (EPK), and booking
   - **Metadata / Technical**: JetBrains Mono
 - **Icons**: Lucide Icons
 - **Booking Pipeline**:
-  - `Browser → Booking Form → Cloudflare Pages Function (/functions/api/booking.ts) → Resend → DJ / Agent Email`
-  - A `BookingService` abstraction layer is planned for Phase 4, alongside the full booking form, to decouple the form from the transport.
+  - `Browser → Booking Form → BookingService (src/lib/booking-service.ts) → Cloudflare Pages Function (/functions/api/booking.ts) → Resend → DJ / Agent Email`
 - **Configuration & Content**: Strongly typed local TypeScript modules designed to be easily replaced by a headless CMS or database in future phases without rewriting UI components.
 
 ---
@@ -95,7 +94,6 @@ Phase 3 extracted reusable UI primitives and refactored all sections and pages t
 | **Input** | `Input.tsx` | Styled text input matching design tokens |
 | **Textarea** | `Textarea.tsx` | Multi-line input matching design tokens |
 | **Select** | `Select.tsx` | Dropdown select matching Input visual language |
-| **Toast** | `Toast.tsx` | Dismissable notification bar |
 | **Card** | `Card.tsx` | Container with `default`, `interactive`, `bordered` variants |
 | **AspectRatio** | `AspectRatio.tsx` | Exhaustive aspect-ratio mapper (`16:9`, `4:3`, `1:1`, `3:2`, `4:5`) |
 | **SectionHeader** | `SectionHeader.tsx` | Reusable section/page header with index, label, title, optional description, and `h1`/`h2` support |
@@ -121,15 +119,61 @@ Phase 3 extracted reusable UI primitives and refactored all sections and pages t
 
 ---
 
-## 6. Environment Variables
+## 6. Phase 4: Booking Pipeline & Form System
 
-For production booking notification dispatch via Cloudflare Pages Function:
-- `BOOKING_NOTIFICATION_EMAIL`: Recipient email address for booking inquiries.
-- `RESEND_API_KEY`: API credential for Resend transactional email delivery.
+Phase 4 implemented the end-to-end booking inquiry pipeline with full frontend/backend abstraction, comprehensive client and server validation, and accessible form controls.
+
+### Service Layer (`src/lib/booking-service.ts`)
+
+The `submitBookingRequest` function isolates all transport mechanics from the UI components:
+- Encapsulates the API endpoint (`/api/booking`), HTTP headers, and serialization.
+- Normalizes server error messages and network failures into a structured `BookingResponse` (`{ success: boolean; message: string }`).
+- Guaranteed to never throw unhandled exceptions to the UI layer.
+
+### Form Component (`src/components/sections/BookingSection.tsx`)
+
+The booking form collects the complete 9-field `BookingRequest` domain model:
+- `name` (Input, required)
+- `email` (Input, type="email", required)
+- `organization` (Input, required)
+- `eventName` (Input, required)
+- `eventDate` (Input, type="date", required)
+- `location` (Input, required)
+- `budget` (Select, required, options from `BookingBudgetRange`)
+- `message` (Textarea, required)
+- `websiteUrl` (Input, type="url", optional)
+
+### Accessibility & UX (WCAG 2.1 AA)
+
+- **Semantic Labels**: Every form control has an associated `<label>` element linked via `htmlFor`/`id`.
+- **Inline Error Feedback**: On client validation failure, invalid fields are assigned `aria-invalid="true"` and linked to error messages via `aria-describedby`.
+- **Status Announcements**: Submission outcomes (success/error) render in an alert banner with `role="status"` and `aria-live="polite"`.
+- **Focus Management**: Focus automatically transitions to the status banner upon submit for screen reader and keyboard accessibility.
+- **Submission States**: The submit button tracks `"submitting"` state and disables during active network requests.
+
+### Backend Endpoint (`functions/api/booking.ts`)
+
+- Deployed as a Cloudflare Pages Function executing outside the static Next.js export.
+- Validates request payloads and dispatches formatted notification emails via Resend.
+- Returns HTTP 503 if `RESEND_API_KEY` is missing in production, preventing silent drops.
+- Supports explicit development testing via `BOOKING_DEMO_MODE="true"`.
 
 ---
 
-## 7. Development & Build Scripts
+## 7. Environment Variables
+
+Configure these environment variables in your Cloudflare Pages project settings:
+
+| Variable | Description | Default / Example |
+| :--- | :--- | :--- |
+| `BOOKING_NOTIFICATION_EMAIL` | Recipient email address for booking inquiries. | `booking@example.com` |
+| `RESEND_API_KEY` | API key from Resend for transactional email dispatch. | `re_...` |
+| `BOOKING_FROM_EMAIL` | Verified Resend sender address. Until a domain is verified, omit to use the sandbox sender (delivers only to the Resend account owner). | `"DJ Platform Booking <onboarding@resend.dev>"` |
+| `BOOKING_DEMO_MODE` | Set to `"true"` to enable demo mode without `RESEND_API_KEY` (logs inquiries locally without failing). | `"false"` |
+
+---
+
+## 8. Development & Build Scripts
 
 ```bash
 # Start local development server
