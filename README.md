@@ -209,11 +209,19 @@ the build. The correct settings are:
 | Build command | `npm run build` |
 | Build output directory | `out` |
 
-### Automated deploys
+### Automated deploys — not installed
 
-`.github/workflows/deploy.yml` runs on every push to `main`: verify secrets,
-install, typecheck, `npm test` (which builds and runs the full suite), then
-`wrangler pages deploy`. A failing test ships nothing.
+A workflow that tests and deploys on every push to `main` is prepared but **not
+in the repository**. GitHub refuses to accept `.github/workflows/*` from a
+Personal Access Token that lacks the `workflow` scope, and the token in use does
+not have it. Note that the same token *can* delete workflow files — only
+creating and updating them is blocked, which makes the cause easy to misread.
+
+To enable it, either add the `workflow` scope to the token
+(Settings → Developer settings → Personal access tokens) and push, or create the
+file through the GitHub web UI, which uses session auth and is unaffected.
+
+Until then `npm run deploy` below is the gate, and it has to be run deliberately.
 
 Two repository secrets are required, under
 **Settings → Secrets and variables → Actions**:
