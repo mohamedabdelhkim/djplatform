@@ -135,6 +135,9 @@ async function sendAlert(
     ``,
     `Checks run every 15 minutes. You will not get another alert about this`,
     `for an hour, so this is not resolved just because the mail stops.`,
+    ``,
+    `Current status: ${origin}`,
+    `Monitor: https://djplatform-monitor.mohamedabdelhkim96.workers.dev`,
   ].join("\n");
 
   const res = await fetch("https://api.resend.com/emails", {
@@ -146,7 +149,13 @@ async function sendAlert(
     body: JSON.stringify({
       from: env.ALERT_FROM || "Platform Monitor <onboarding@resend.dev>",
       to: [env.ALERT_EMAIL],
-      subject: `[ALERT] Booking platform check failed (${failures.length})`,
+      // Plain wording on purpose. The first alert landed in spam: bracketed
+      // shouty prefixes from an unverified sending domain are a well-known
+      // filter trigger, and an alert nobody sees is not an alert.
+      subject:
+        failures.length === 1
+          ? `Booking platform: ${failures[0].name} is failing`
+          : `Booking platform: ${failures.length} checks are failing`,
       text,
     }),
   });
