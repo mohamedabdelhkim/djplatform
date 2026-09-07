@@ -28,16 +28,11 @@ describe("validate()", () => {
     );
   });
 
-  const REQUIRED = [
-    "name",
-    "email",
-    "organization",
-    "eventName",
-    "eventDate",
-    "location",
-    "budget",
-    "message",
-  ] as const;
+  // Only these four are required. eventName, eventDate and budget are asked
+  // for but optional: a promoter who is interested and does not yet know the
+  // date or the budget should not be turned away at the first screen.
+  const REQUIRED = ["name", "email", "organization", "location", "message"] as const;
+  const OPTIONAL = ["eventName", "eventDate", "budget", "websiteUrl"] as const;
 
   for (const field of REQUIRED) {
     test(`${field} is required`, () => {
@@ -57,15 +52,35 @@ describe("validate()", () => {
       name: "",
       email: "",
       organization: "",
-      eventName: "",
-      eventDate: "",
       location: "",
-      budget: "",
       message: "",
     });
     for (const field of REQUIRED) {
       assert.ok(errors[field], `missing error for ${field}`);
     }
+  });
+
+  for (const field of OPTIONAL) {
+    test(`${field} may be left blank`, () => {
+      assert.equal(validate({ ...VALID, [field]: "" })[field], undefined);
+    });
+  }
+
+  test("a request with only the four required fields is accepted", () => {
+    assert.deepEqual(
+      validate({
+        name: "Alex Promoter",
+        email: "alex@example.com",
+        organization: "Demo Collective",
+        location: "Berlin, DE",
+        message: "Interested in a booking, dates flexible.",
+        eventName: "",
+        eventDate: "",
+        budget: "",
+        websiteUrl: "",
+      }),
+      {}
+    );
   });
 
   describe("email format", () => {

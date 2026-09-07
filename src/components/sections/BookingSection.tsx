@@ -245,7 +245,6 @@ export function BookingSection() {
                 value={form.eventName}
                 onChange={handleChange}
                 error={errors.eventName}
-                required
                 disabled={status === "submitting"}
               />
 
@@ -257,7 +256,6 @@ export function BookingSection() {
                 value={form.eventDate}
                 onChange={handleChange}
                 error={errors.eventDate}
-                required
                 disabled={status === "submitting"}
               />
             </div>
@@ -283,7 +281,6 @@ export function BookingSection() {
                 value={form.budget}
                 onChange={handleChange}
                 error={errors.budget}
-                required
                 disabled={status === "submitting"}
               />
             </div>

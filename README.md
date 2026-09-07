@@ -444,6 +444,15 @@ diagnosis — first that `pages.dev` was rejected as a shared domain, then that 
 hostname list was wrong. Both were wrong: the widget renders and verifies
 correctly in an ordinary browser. Test this layer in a real browser or not at all.
 
+### Required fields
+
+Only **name, email, organization, location and the message** are required. The
+form asked for seven while the server has only ever required three, so a
+promoter who was interested but did not yet know the date or the budget was
+turned away at the first screen. Event name, date and budget are still asked
+for — anyone who has an answer gives one — but they no longer block the
+inquiry, and the missing detail comes back in the first reply.
+
 ### Rate limiting
 
 `withinRateLimit()` counts requests per `cf-connecting-ip` in a Workers KV

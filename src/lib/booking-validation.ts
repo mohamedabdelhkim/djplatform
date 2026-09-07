@@ -23,6 +23,14 @@ export interface FormErrors {
 export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
+ * Only name, email, organization and message are required.
+ *
+ * The form asked for seven, while the server has only ever required three. A
+ * promoter who is interested but does not yet know the date or the budget was
+ * being turned away at the first screen; those details arrive in the first
+ * reply instead. The fields stay on the form - anyone who has an answer can
+ * give one.
+ *
  * Mirrors MAX_FIELD_LENGTH in functions/api/booking.ts, so oversized input is
  * reported inline instead of coming back as a generic server rejection. The
  * server enforces the same limits regardless - this is UX, not the control.
@@ -56,20 +64,8 @@ export function validate(form: BookingRequest): FormErrors {
     errors.organization = "Organization or promoter entity is required.";
   }
 
-  if (!form.eventName.trim()) {
-    errors.eventName = "Event or festival name is required.";
-  }
-
-  if (!form.eventDate.trim()) {
-    errors.eventDate = "Proposed event date is required.";
-  }
-
   if (!form.location.trim()) {
     errors.location = "Event location (city, country, venue) is required.";
-  }
-
-  if (!form.budget || !form.budget.trim()) {
-    errors.budget = "Please select a budget tier.";
   }
 
   if (!form.message.trim()) {
