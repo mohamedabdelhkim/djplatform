@@ -387,6 +387,7 @@ every accepted request. It is the only attack surface that costs anything.
 | Honeypot (`contact_reference`) | Hidden input + Function | 200 with nothing dispatched |
 | Configuration shape check | `findConfigProblem()`, before request parsing | 503 naming the wrong variable |
 | Per-IP throttle (Workers KV) | `withinRateLimit()` in the Function | 429 after 5 requests in 10 minutes |
+| WAF rate limiting (edge) | Zone ruleset, `http_ratelimit` phase | 429 after 3 requests in 10 seconds |
 | Cloudflare Turnstile | Widget on the form + `siteverify` in the Function | 403 on a missing or rejected token |
 | Subject sanitisation | `sanitizeHeaderValue()` | CR/LF and control characters stripped, truncated |
 | Security headers | `public/_headers` | CSP `frame-ancestors`, HSTS, XFO, Permissions-Policy, COOP |
@@ -452,6 +453,34 @@ promoter who was interested but did not yet know the date or the budget was
 turned away at the first screen. Event name, date and budget are still asked
 for — anyone who has an answer gives one — but they no longer block the
 inquiry, and the missing detail comes back in the first reply.
+
+### WAF rate limiting
+
+A zone rule in the `http_ratelimit` phase blocks an IP after **3 requests in 10
+seconds**, enforced at Cloudflare's edge — the request never reaches the
+Function, so it costs no invocation and no KV write.
+
+The free plan permits exactly one period and one mitigation timeout: both must
+be 10 seconds. Longer windows return
+`not entitled to use the period 600, can only use a period among [10]`. That
+short window is why the KV throttle stays: the two catch different shapes of
+abuse.
+
+| Layer | Window | Catches |
+| :--- | :--- | :--- |
+| WAF (edge) | 3 per 10s | A flood — dozens of requests a second |
+| KV (Function) | 5 per 10min | Patience — one request every few seconds, indefinitely |
+
+Neither replaces the other. Reproduce the rule with:
+
+```bash
+curl -sX PUT "https://api.cloudflare.com/client/v4/zones/<zone-id>/rulesets/phases/http_ratelimit/entrypoint" \
+  -H "Authorization: Bearer $CF_AUTH_TOKEN" -H "Content-Type: application/json" \
+  -d '{"rules":[{"description":"booking-endpoint","expression":"(http.request.uri.path eq \"/api/booking\")","action":"block","ratelimit":{"characteristics":["ip.src","cf.colo.id"],"period":10,"requests_per_period":3,"mitigation_timeout":10},"enabled":true}]}'
+```
+
+The token needs `Zone → Zone WAF → Edit` on that zone only, and should be
+deleted afterwards.
 
 ### Rate limiting
 
