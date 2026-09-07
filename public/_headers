@@ -2,6 +2,14 @@
 # build output root. Deliberately conservative: no script-src or default-src,
 # because Next.js hydration relies on inline scripts and a wrong value here
 # breaks the site silently in the browser rather than at build time.
+#
+# The last line detaches Access-Control-Allow-Origin, which Cloudflare Pages
+# attaches to static assets on its own. Removing it grants nothing and protects
+# nothing: the pages are public, the site sets no cookies, and the booking
+# Function sends no CORS headers at all, so anyone wanting the HTML fetches it
+# server-side where CORS does not apply. It goes because scanners flag it as a
+# permissive CORS policy, and a report full of known noise is a report where a
+# real finding goes unnoticed.
 /*
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
@@ -10,3 +18,4 @@
   Strict-Transport-Security: max-age=31536000
   Content-Security-Policy: frame-ancestors 'none'; base-uri 'self'; form-action 'self'
   Cross-Origin-Opener-Policy: same-origin
+  ! Access-Control-Allow-Origin
