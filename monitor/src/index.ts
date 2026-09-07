@@ -19,7 +19,7 @@ interface Env {
   SITE_ORIGIN?: string;
 }
 
-const DEFAULT_ORIGIN = "https://djplatform.pages.dev";
+const DEFAULT_ORIGIN = "https://djplatform.dpdns.org";
 
 /** Don't re-alert about the same ongoing outage more often than this. */
 const ALERT_COOLDOWN_SECONDS = 3600;
@@ -60,6 +60,13 @@ async function checkBookingEndpoint(origin: string): Promise<CheckResult> {
       body: JSON.stringify({ name: "", email: "", message: "" }),
     });
 
+    // 403 is the healthy answer now that Turnstile is enforced: the probe sends
+    // no token, so being refused proves the check is running. 400 remains
+    // healthy for the same reason it always was, and covers the case where
+    // Turnstile is deliberately switched off.
+    if (res.status === 403) {
+      return { name: "POST /api/booking", ok: true, detail: "HTTP 403 (verifying)" };
+    }
     if (res.status === 400) {
       return { name: "POST /api/booking", ok: true, detail: "HTTP 400 (validating)" };
     }
@@ -71,7 +78,7 @@ async function checkBookingEndpoint(origin: string): Promise<CheckResult> {
     return {
       name: "POST /api/booking",
       ok: false,
-      detail: `HTTP ${res.status} — expected 400. Body: ${body}`,
+      detail: `HTTP ${res.status} — expected 403, 400 or 429. Body: ${body}`,
     };
   } catch (error) {
     return { name: "POST /api/booking", ok: false, detail: `request failed: ${error}` };

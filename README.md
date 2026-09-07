@@ -188,7 +188,8 @@ npm run build
 
 ## 9. Deployment (Cloudflare Pages)
 
-Live at `https://djplatform.pages.dev`.
+Live at `https://djplatform.dpdns.org` (the `djplatform.pages.dev` address
+still serves the same deployment).
 
 ### It must be a Pages project, not a Worker
 
@@ -386,6 +387,7 @@ every accepted request. It is the only attack surface that costs anything.
 | Honeypot (`contact_reference`) | Hidden input + Function | 200 with nothing dispatched |
 | Configuration shape check | `findConfigProblem()`, before request parsing | 503 naming the wrong variable |
 | Per-IP throttle (Workers KV) | `withinRateLimit()` in the Function | 429 after 5 requests in 10 minutes |
+| Cloudflare Turnstile | Widget on the form + `siteverify` in the Function | 403 on a missing or rejected token |
 | Subject sanitisation | `sanitizeHeaderValue()` | CR/LF and control characters stripped, truncated |
 | Security headers | `public/_headers` | CSP `frame-ancestors`, HSTS, XFO, Permissions-Policy, COOP |
 
@@ -422,6 +424,26 @@ for `booking-validation.ts`.
 It checks shape, not correctness: nothing here can tell whether an address is the
 right mailbox, only that it is an address at all — which is what was broken.
 
+### Turnstile
+
+The site key is public and lives in `BookingSection.tsx`; `TURNSTILE_SECRET_KEY`
+is a Pages secret. Verification checks `action` and `hostname` as well as
+`success` — without those, a token minted for any other widget on the account
+would be accepted here.
+
+A missing or rejected token is refused with 403. A **missing secret** is only
+logged, and verification is skipped: enforcing a dependency that had never been
+observed working is exactly what took bookings down for forty minutes on
+6 September. The honeypot, throttle, size cap and length limits all still apply.
+
+**It cannot be verified from a headless or embedded browser.** Turnstile refused
+to render in the tooling used during development and reported `110200` (hostname
+not allowed) on four separate widgets, across both `pages.dev` and the custom
+domain. Each failure was read as a configuration fault and produced a wrong
+diagnosis — first that `pages.dev` was rejected as a shared domain, then that the
+hostname list was wrong. Both were wrong: the widget renders and verifies
+correctly in an ordinary browser. Test this layer in a real browser or not at all.
+
 ### Rate limiting
 
 `withinRateLimit()` counts requests per `cf-connecting-ip` in a Workers KV
@@ -451,10 +473,10 @@ prohibition on adding a database.
    is what this endpoint is exposed to; it is not an exact quota. A WAF rate
    limiting rule would be enforced before the request ever reached the Function,
    but WAF rules apply to zones you own and `pages.dev` is Cloudflare's zone.
-2. **No Turnstile.** Two widgets with two site keys both returned `110200`
-   (hostname not allowed) for `djplatform.pages.dev`, while the integration
-   itself was verified rendering and submitting in a browser. `pages.dev` being
-   a shared domain is the likely cause, so this waits on a custom domain.
+2. **Turnstile cannot be checked by the monitor.** The uptime probe sends no
+   token, so it can only confirm that verification *refuses* it — never that a
+   genuine submission passes. That path is exercised only when a real person
+   books, or by hand in a real browser.
 3. **Resend quota.** Sustained abuse still exhausts the plan's daily send limit,
    after which genuine bookings fail. Rate limiting is the mitigation.
 4. **No persistence.** If Resend rejects a message the inquiry is gone — there is

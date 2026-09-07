@@ -1,6 +1,7 @@
 import { findConfigProblem } from "../../src/lib/booking-config";
 
 interface Env {
+  TURNSTILE_SECRET_KEY?: string;
   /** KV namespace used only as a short-lived per-IP counter. Optional: when the
    *  binding is absent the endpoint still works, unthrottled. */
   BOOKING_RATE_LIMIT?: KVNamespace;
@@ -20,6 +21,8 @@ interface BookingPayload {
   budget?: string;
   message?: string;
   websiteUrl?: string;
+  /** Turnstile token produced by the widget on the page. */
+  turnstileToken?: string;
   /** Honeypot. Hidden from users; only automated submissions fill it.
    *  Deliberately NOT named company/organization/fax: those are autofill
    *  tokens, and a browser filling this for a real person would discard a
@@ -47,6 +50,7 @@ const MAX_FIELD_LENGTH: Record<keyof BookingPayload, number> = {
   message: 5000,
   websiteUrl: 500,
   contact_reference: 100,
+  turnstileToken: 2048,
 };
 
 /** Strips CR/LF and control characters, then truncates. Used for the subject,
@@ -95,6 +99,61 @@ async function withinRateLimit(
   } catch (error) {
     console.error("Rate limit store unavailable, allowing request:", error);
     return true;
+  }
+}
+
+/**
+ * Verifies a Turnstile token with Cloudflare.
+ *
+ * Fails closed: a missing secret, a missing token or a rejected token all
+ * refuse the submission. Turnstile answers "is this a person", which cannot be
+ * skipped — unlike the throttle, which fails open because it is a mitigation.
+ *
+ * Checks `action` and `hostname` as well as `success`, per Cloudflare's own
+ * guidance: without them a token minted for any other widget on the account
+ * would be accepted here.
+ */
+async function verifyTurnstile(
+  token: string | undefined,
+  secret: string,
+  remoteIp: string | null,
+  expectedHostname: string
+): Promise<boolean> {
+  if (!token) return false;
+
+  const body = new FormData();
+  body.append("secret", secret);
+  body.append("response", token);
+  if (remoteIp) body.append("remoteip", remoteIp);
+
+  try {
+    const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST",
+      body,
+    });
+    const outcome = (await res.json()) as {
+      success?: boolean;
+      action?: string;
+      hostname?: string;
+      "error-codes"?: string[];
+    };
+
+    if (outcome.success !== true) {
+      console.error("Turnstile rejected a token:", JSON.stringify(outcome["error-codes"] ?? []));
+      return false;
+    }
+    if (outcome.action && outcome.action !== "booking") {
+      console.error("Turnstile token was minted for a different action:", outcome.action);
+      return false;
+    }
+    if (outcome.hostname && outcome.hostname !== expectedHostname) {
+      console.error("Turnstile token came from another hostname:", outcome.hostname);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error("Turnstile verification request failed:", error);
+    return false;
   }
 }
 
@@ -210,6 +269,36 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           },
         }
       );
+    }
+
+    // After the honeypot and the throttle, before Resend: a bot caught earlier
+    // costs no siteverify round-trip, and abuse never reaches the paid path.
+    const turnstileSecret = context.env.TURNSTILE_SECRET_KEY;
+    if (!turnstileSecret) {
+      // Logged rather than refused. Turnstile is the newest layer and the one
+      // whose absence must not repeat 6 September, when enforcing an unverified
+      // dependency took bookings down for forty minutes. The honeypot, throttle,
+      // size cap and length limits all still apply.
+      console.warn("TURNSTILE_SECRET_KEY is not set - human verification is skipped.");
+    } else {
+      const verified = await verifyTurnstile(
+        data.turnstileToken,
+        turnstileSecret,
+        context.request.headers.get("cf-connecting-ip"),
+        new URL(context.request.url).hostname
+      );
+      if (!verified) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "Verification failed. Please reload the page and try again.",
+          }),
+          {
+            status: 403,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
     }
 
     for (const [field, limit] of Object.entries(MAX_FIELD_LENGTH)) {

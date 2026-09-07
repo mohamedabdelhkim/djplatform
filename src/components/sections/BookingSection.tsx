@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, type ChangeEvent, type FormEvent } from "react";
+import Script from "next/script";
 import { Container } from "@/components/layout/Container";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { Input } from "@/components/ui/Input";
@@ -11,6 +12,18 @@ import { submitBookingRequest } from "@/lib/booking-service";
 import { cn } from "@/lib/utils";
 import type { BookingRequest, BookingSubmissionStatus } from "@/types/booking";
 import { validate, type FormErrors } from "@/lib/booking-validation";
+
+/**
+ * Turnstile site key. Public by design - it is rendered into the page, and is
+ * useless without the secret, which lives only in the Pages environment.
+ */
+const TURNSTILE_SITE_KEY = "0x4AAAAAAEq_jNBbSaDzQ9PA";
+
+declare global {
+  interface Window {
+    turnstile?: { reset: (widget?: string | HTMLElement) => void };
+  }
+}
 
 const BUDGET_OPTIONS = [
   { value: "", label: "Select Budget Tier (USD)" },
@@ -41,6 +54,7 @@ export function BookingSection() {
   const [status, setStatus] = useState<BookingSubmissionStatus>("idle");
   const [responseMessage, setResponseMessage] = useState<string>("");
   const statusRef = useRef<HTMLDivElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
     if (status === "success" || status === "error") {
@@ -73,7 +87,18 @@ export function BookingSection() {
     setStatus("submitting");
     setResponseMessage("");
 
-    const response = await submitBookingRequest(form, honeypot);
+    // Turnstile writes its token into a hidden input inside the widget once the
+    // challenge resolves. No token means the widget has not finished, or failed
+    // to load at all.
+    const token = formRef.current
+      ?.querySelector<HTMLInputElement>('[name="cf-turnstile-response"]')
+      ?.value;
+
+    const response = await submitBookingRequest(form, honeypot, token);
+
+    // Tokens are single use, so the widget is reset either way: otherwise a
+    // second attempt is rejected even when the first failed for another reason.
+    window.turnstile?.reset();
 
     if (response.success) {
       setStatus("success");
@@ -142,7 +167,7 @@ export function BookingSection() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} noValidate className="space-y-4">
+          <form ref={formRef} onSubmit={handleSubmit} noValidate className="space-y-4">
             {/* Honeypot: positioned off-screen rather than display:none, which
                 some bots detect. aria-hidden and tabIndex keep it away from
                 screen readers and keyboard users, so it is not a control a
@@ -274,6 +299,18 @@ export function BookingSection() {
               rows={5}
               required
               disabled={status === "submitting"}
+            />
+
+            <div
+              className="cf-turnstile"
+              data-sitekey={TURNSTILE_SITE_KEY}
+              data-action="booking"
+              data-theme="dark"
+            />
+
+            <Script
+              src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+              strategy="afterInteractive"
             />
 
             <div className="pt-2">

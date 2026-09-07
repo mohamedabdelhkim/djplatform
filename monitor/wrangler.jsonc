@@ -14,7 +14,7 @@
   },
 
   "vars": {
-    "SITE_ORIGIN": "https://djplatform.pages.dev"
+    "SITE_ORIGIN": "https://djplatform.dpdns.org"
   },
 
   // Shared with the booking Function, used only for the alert-cooldown key so
