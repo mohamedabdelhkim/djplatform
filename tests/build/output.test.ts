@@ -1,6 +1,6 @@
 import { test, describe, before } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import {
   getAllGalleryImages,
@@ -196,5 +196,101 @@ describe("Turnstile", () => {
       readFileSync(path.join(OUT, "_headers"), "utf8")
     )?.[1] ?? "";
     assert.ok(!/script-src|frame-src|default-src/i.test(csp));
+  });
+});
+
+describe("asset budget", () => {
+  // Nothing in this stack will save a heavy image. `output: "export"` forces
+  // images.unoptimized, so next/image emits a plain <img> and ships exactly the
+  // file it was handed: no resizing, no re-encoding, no WebP conversion. The
+  // free Cloudflare plan has no automatic image optimisation either.
+  //
+  // The failure is invisible where it would be noticed. A gallery of camera
+  // JPEGs is thirty megabytes, but on a laptop with a warm cache it still feels
+  // instant, so it passes review and reaches a promoter on a phone as a blank
+  // screen. Compressed properly the same gallery is under a megabyte - a
+  // difference of roughly fifty times, decided entirely by what gets committed.
+  //
+  // To exceed a limit on purpose, add the path to BUDGET_EXCEPTIONS with a
+  // reason. The point is to make the choice deliberate, not impossible.
+
+  const MAX_IMAGE_BYTES = 200 * 1024;
+  const MAX_IMAGE_TOTAL_BYTES = 1_500 * 1024;
+  const MAX_DOWNLOAD_BYTES = 10 * 1024 * 1024;
+
+  // WebP and AVIF carry the same picture in a fraction of the bytes, and here
+  // that saving has to come from the file itself. SVG and ICO are size-capped
+  // rather than banned: a vector is usually tiny, but an SVG with a base64
+  // raster inside it is not a vector in any way that matters.
+  const ALLOWED_IMAGE = new Set([".webp", ".avif", ".svg", ".ico"]);
+  const LEGACY_IMAGE = new Set([".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tif", ".tiff"]);
+  const DOWNLOAD = new Set([".pdf", ".zip"]);
+
+  const BUDGET_EXCEPTIONS: readonly string[] = [
+    // "images/gallery/hero.webp", // full-bleed hero, 320KB is deliberate
+  ];
+
+  function walk(dir: string, prefix = ""): { path: string; bytes: number }[] {
+    const found: { path: string; bytes: number }[] = [];
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) found.push(...walk(full, rel));
+      else found.push({ path: rel, bytes: statSync(full).size });
+    }
+    return found;
+  }
+
+  const shipped = walk(OUT).filter((f) => !BUDGET_EXCEPTIONS.includes(f.path));
+  const ext = (p: string) => path.extname(p).toLowerCase();
+  const kb = (bytes: number) => `${Math.round(bytes / 1024)}KB`;
+
+  const images = shipped.filter((f) => ALLOWED_IMAGE.has(ext(f.path)) || LEGACY_IMAGE.has(ext(f.path)));
+
+  test("no image ships in a legacy format", () => {
+    const legacy = shipped.filter((f) => LEGACY_IMAGE.has(ext(f.path)));
+    assert.deepEqual(
+      legacy.map((f) => f.path),
+      [],
+      `convert these to .webp or .avif before committing them (https://squoosh.app):\n` +
+        legacy.map((f) => `  ${f.path} (${kb(f.bytes)})`).join("\n")
+    );
+  });
+
+  test(`no single image exceeds ${kb(MAX_IMAGE_BYTES)}`, () => {
+    const heavy = images.filter((f) => f.bytes > MAX_IMAGE_BYTES);
+    assert.deepEqual(
+      heavy.map((f) => f.path),
+      [],
+      `re-export these smaller - 1920px wide is enough, and quality 75 is usually indistinguishable:\n` +
+        heavy.map((f) => `  ${f.path} is ${kb(f.bytes)}, limit is ${kb(MAX_IMAGE_BYTES)}`).join("\n")
+    );
+  });
+
+  test(`all images together stay under ${kb(MAX_IMAGE_TOTAL_BYTES)}`, () => {
+    // Twenty images just inside the per-file limit are still four megabytes.
+    const total = images.reduce((sum, f) => sum + f.bytes, 0);
+    assert.ok(
+      total <= MAX_IMAGE_TOTAL_BYTES,
+      `images total ${kb(total)} across ${images.length} files, limit is ${kb(MAX_IMAGE_TOTAL_BYTES)}`
+    );
+  });
+
+  test(`no download exceeds ${Math.round(MAX_DOWNLOAD_BYTES / 1024 / 1024)}MB`, () => {
+    // Press packs are an explicit click, so the ceiling is far higher than for
+    // images - but a rider PDF with uncompressed scans in it still has no excuse.
+    const heavy = shipped.filter((f) => DOWNLOAD.has(ext(f.path)) && f.bytes > MAX_DOWNLOAD_BYTES);
+    assert.deepEqual(
+      heavy.map((f) => f.path),
+      [],
+      heavy.map((f) => `  ${f.path} is ${kb(f.bytes)}`).join("\n")
+    );
+  });
+
+  test("the budget is actually looking at the export", () => {
+    // Without this, an empty or mis-rooted walk would let every check above pass
+    // by finding nothing - the quietest way for a guard to stop guarding.
+    assert.ok(shipped.length > 20, `only ${shipped.length} files found under out/`);
+    assert.ok(images.length >= 13, `only ${images.length} images found - the asset manifest should be larger`);
   });
 });
