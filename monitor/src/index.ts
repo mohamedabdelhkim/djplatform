@@ -17,6 +17,8 @@ interface Env {
   ALERT_EMAIL?: string;
   ALERT_FROM?: string;
   SITE_ORIGIN?: string;
+  /** Dead man's switch ping URL. Unset means the heartbeat is simply skipped. */
+  HEALTHCHECK_URL?: string;
 }
 
 const DEFAULT_ORIGIN = "https://djplatform.dpdns.org";
@@ -223,6 +225,39 @@ async function lookupMessage(env: Env, id: string): Promise<unknown> {
   }
 }
 
+/**
+ * Pings the dead man's switch.
+ *
+ * Everything else here watches the site. Nothing watches this Worker: if the
+ * cron silently stops firing - a botched deploy, a disabled trigger, an account
+ * problem - the checks stop, the alerts stop, and the silence is indistinguishable
+ * from a healthy month. An external service that expects a ping on a schedule and
+ * complains when one fails to arrive is the only way to catch that from outside.
+ *
+ * Called ONLY from scheduled(). This matters more than it looks: the fetch()
+ * handler is a public URL that an external uptime check will poll every few
+ * minutes, and if that path pinged too, those polls would keep the switch alive
+ * while the cron lay dead - masking the exact failure it exists to catch.
+ *
+ * Fails open. A monitor that throws because its own telemetry endpoint is
+ * unreachable is worse than one that logs and carries on.
+ */
+async function pingHealthcheck(env: Env, healthy: boolean): Promise<string> {
+  const base = env.HEALTHCHECK_URL;
+  if (!base) return "skipped (HEALTHCHECK_URL not set)";
+
+  // Signalling failure as well as success means an outage raises an alarm even
+  // if the Resend path is broken or filtered - which has already happened once.
+  const url = healthy ? base : `${base.replace(/\/+$/, "")}/fail`;
+
+  try {
+    const res = await fetch(url, { method: "GET" });
+    return res.ok ? `sent (${healthy ? "ok" : "fail"})` : `rejected ${res.status}`;
+  } catch (error) {
+    return `unreachable: ${error}`;
+  }
+}
+
 async function runChecks(env: Env): Promise<{ origin: string; results: CheckResult[] }> {
   const origin = env.SITE_ORIGIN || DEFAULT_ORIGIN;
   const results = await Promise.all([
@@ -260,10 +295,12 @@ export default {
 
         if (failures.length === 0) {
           console.log("Monitor: all checks passed.", results.map((r) => r.detail).join(" · "));
+          console.log("Monitor: heartbeat", await pingHealthcheck(env, true));
           return;
         }
 
         await alertIfDue(env, origin, failures);
+        console.log("Monitor: heartbeat", await pingHealthcheck(env, false));
       })()
     );
   },
@@ -292,7 +329,15 @@ export default {
 
     return new Response(
       JSON.stringify(
-        { healthy, alert, origin, checkedAt: new Date().toISOString(), results },
+        {
+          healthy,
+          alert,
+          // Reported, never sent from here - see pingHealthcheck.
+          heartbeat: env.HEALTHCHECK_URL ? "configured" : "not configured",
+          origin,
+          checkedAt: new Date().toISOString(),
+          results,
+        },
         null,
         2
       ),
