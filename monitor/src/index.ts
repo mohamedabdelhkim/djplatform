@@ -172,6 +172,41 @@ async function sendAlert(
   return `accepted by resend (id ${id || "unknown"}, to ${maskEmail(env.ALERT_EMAIL)})`;
 }
 
+/**
+ * Asks Resend what became of a message it already accepted.
+ *
+ * Acceptance is not delivery: with the sandbox sender Resend takes the request,
+ * returns an id, and then drops anything not addressed to the account owner
+ * without an error. Nothing in the sending path can tell the two apart, so the
+ * only way to know is to ask afterwards.
+ *
+ * Returns status metadata only, never the message body or recipients.
+ */
+async function lookupMessage(env: Env, id: string): Promise<unknown> {
+  if (!env.RESEND_API_KEY) return { error: "RESEND_API_KEY is not set on the monitor" };
+
+  const res = await fetch(`https://api.resend.com/emails/${encodeURIComponent(id)}`, {
+    headers: { Authorization: `Bearer ${env.RESEND_API_KEY}` },
+  });
+  const body = await res.text();
+
+  if (!res.ok) {
+    return { httpStatus: res.status, error: body.slice(0, 300) };
+  }
+
+  try {
+    const parsed = JSON.parse(body) as Record<string, unknown>;
+    return {
+      id: parsed.id,
+      status: parsed.last_event ?? parsed.status ?? "unknown",
+      createdAt: parsed.created_at,
+      subject: parsed.subject,
+    };
+  } catch {
+    return { httpStatus: res.status, raw: body.slice(0, 300) };
+  }
+}
+
 async function runChecks(env: Env): Promise<{ origin: string; results: CheckResult[] }> {
   const origin = env.SITE_ORIGIN || DEFAULT_ORIGIN;
   const results = await Promise.all([
@@ -222,7 +257,17 @@ export default {
    * It takes the same alert path as the cron - including the cooldown, which
    * also stops this public URL from being used to send mail repeatedly.
    */
-  async fetch(_request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    // ?message=<id> asks Resend what happened to a message it accepted, so the
+    // API key never has to leave the Worker to answer that question.
+    const messageId = new URL(request.url).searchParams.get("message");
+    if (messageId) {
+      const delivery = await lookupMessage(env, messageId);
+      return new Response(JSON.stringify({ delivery }, null, 2), {
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
     const { origin, results } = await runChecks(env);
     const failures = results.filter((r) => !r.ok);
     const healthy = failures.length === 0;
