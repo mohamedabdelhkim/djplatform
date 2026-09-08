@@ -1,0 +1,19 @@
+<!--
+  Tab icon. Five bars read as sound at a glance and stay legible at 16px, where
+  a record or a wordmark turns to mush. Deliberately carries no letter: the
+  artist name is still a placeholder, and an icon built on it would have to be
+  redrawn the moment real content lands.
+
+  Full-bleed background rather than transparency, so the mark holds its contrast
+  against light and dark browser chrome alike.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <rect width="32" height="32" fill="#08080a"/>
+  <g fill="#ccff00">
+    <rect x="4.5"  y="10" width="3" height="12" rx="1.5"/>
+    <rect x="9.5"  y="6"  width="3" height="20" rx="1.5"/>
+    <rect x="14.5" y="3"  width="3" height="26" rx="1.5"/>
+    <rect x="19.5" y="8"  width="3" height="16" rx="1.5"/>
+    <rect x="24.5" y="11" width="3" height="10" rx="1.5"/>
+  </g>
+</svg>

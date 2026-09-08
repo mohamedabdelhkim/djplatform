@@ -18,7 +18,7 @@ export const siteConfig: SiteConfig = {
   tagline: "Underground Electronic Music & Performance",
   description:
     "Official portfolio, tour calendar, sound archive, and EPK booking platform for DEMO ARTIST.",
-  url: "https://example.com",
+  url: "https://djplatform.dpdns.org",
   contactEmail: "demo@example.com",
   navItems: [
     { label: "About", href: "/#about" },

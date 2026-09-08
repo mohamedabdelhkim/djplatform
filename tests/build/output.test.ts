@@ -223,6 +223,14 @@ describe("asset budget", () => {
   // rather than banned: a vector is usually tiny, but an SVG with a base64
   // raster inside it is not a vector in any way that matters.
   const ALLOWED_IMAGE = new Set([".webp", ".avif", ".svg", ".ico"]);
+
+  // Next emits generated metadata images with no file extension at all
+  // (out/opengraph-image, out/apple-icon), so an extension-based scan walks
+  // straight past them. They are exempt from the format rule on purpose - Apple
+  // and every Open Graph consumer want PNG, and WebP would simply not render -
+  // but they are emphatically not exempt from the weight limits: a redesign that
+  // drops a photograph into the share card would otherwise ship unmeasured.
+  const EXTENSIONLESS_IMAGES = new Set(["opengraph-image", "apple-icon"]);
   const LEGACY_IMAGE = new Set([".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tif", ".tiff"]);
   const DOWNLOAD = new Set([".pdf", ".zip"]);
 
@@ -245,7 +253,12 @@ describe("asset budget", () => {
   const ext = (p: string) => path.extname(p).toLowerCase();
   const kb = (bytes: number) => `${Math.round(bytes / 1024)}KB`;
 
-  const images = shipped.filter((f) => ALLOWED_IMAGE.has(ext(f.path)) || LEGACY_IMAGE.has(ext(f.path)));
+  const images = shipped.filter(
+    (f) =>
+      ALLOWED_IMAGE.has(ext(f.path)) ||
+      LEGACY_IMAGE.has(ext(f.path)) ||
+      EXTENSIONLESS_IMAGES.has(f.path)
+  );
 
   test("no image ships in a legacy format", () => {
     const legacy = shipped.filter((f) => LEGACY_IMAGE.has(ext(f.path)));
@@ -292,5 +305,15 @@ describe("asset budget", () => {
     // by finding nothing - the quietest way for a guard to stop guarding.
     assert.ok(shipped.length > 20, `only ${shipped.length} files found under out/`);
     assert.ok(images.length >= 13, `only ${images.length} images found - the asset manifest should be larger`);
+
+    // The share card is the one image most likely to be redesigned by someone
+    // who never sees this file, so assert it is actually inside the budget
+    // rather than trusting that the scan happened to pick it up.
+    for (const name of EXTENSIONLESS_IMAGES) {
+      assert.ok(
+        images.some((f) => f.path === name),
+        `${name} is not being measured - Next stopped emitting it, or renamed it`
+      );
+    }
   });
 });
