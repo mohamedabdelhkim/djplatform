@@ -306,6 +306,19 @@ describe("asset budget", () => {
     assert.ok(shipped.length > 20, `only ${shipped.length} files found under out/`);
     assert.ok(images.length >= 13, `only ${images.length} images found - the asset manifest should be larger`);
 
+    // Extensionless files leave Cloudflare with nothing to infer a MIME type
+    // from, and it serves them as application/octet-stream - which the share-card
+    // consumers reject. The declaration is easy to lose in a _headers edit and
+    // impossible to notice locally, so it is asserted rather than trusted.
+    const headers = readFileSync(path.join(OUT, "_headers"), "utf8");
+    for (const name of EXTENSIONLESS_IMAGES) {
+      assert.match(
+        headers,
+        new RegExp(`/${name}\\s*\\n\\s*Content-Type:\\s*image/png`, "i"),
+        `_headers does not force image/png on /${name}`
+      );
+    }
+
     // The share card is the one image most likely to be redesigned by someone
     // who never sees this file, so assert it is actually inside the budget
     // rather than trusting that the scan happened to pick it up.

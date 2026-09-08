@@ -19,3 +19,15 @@
   Content-Security-Policy: frame-ancestors 'none'; base-uri 'self'; form-action 'self'
   Cross-Origin-Opener-Policy: same-origin
   ! Access-Control-Allow-Origin
+
+# Next emits generated metadata images with no file extension, so Cloudflare has
+# nothing to infer a MIME type from and serves them as application/octet-stream.
+# The page's own og:image:type says image/png, and the consumers that matter -
+# WhatsApp, Slack, Twitter, iOS - trust the response header over the meta tag,
+# so without these two lines the share card is fetched and then discarded.
+# Verified against the live response, not assumed: both served octet-stream.
+/opengraph-image
+  Content-Type: image/png
+
+/apple-icon
+  Content-Type: image/png
